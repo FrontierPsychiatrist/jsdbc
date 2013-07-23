@@ -1,34 +1,60 @@
 #include <node.h>
 
 #include <mysql.h>
+#include <vector>
 
 #include <iostream>
 using namespace v8;
 
 MYSQL mysql;
 
+struct Row {
+  char** fieldValues;
+};
+
 struct QueryBaton {
   uv_work_t request;
   Persistent<Function> callback;
-  char** ids;
+  char* query;
+  Row** rows;
+  int numRows;
+  char** fieldNames;
+  int numFields;
 };
 
 static void query(uv_work_t* req) {
   QueryBaton* baton = static_cast<QueryBaton*>(req->data);
-  int error = mysql_query(&mysql, "SELECT m_id FROM pxm_message");
+  int error = mysql_query(&mysql, baton->query);
   
   if(error) {
-    baton->ids = 0;
+    baton->rows = 0;
+    std::cout << mysql_error(&mysql) << std::endl;
   } else {
     MYSQL_RES* result;
     result = mysql_store_result(&mysql);
-    baton->ids = (char**)malloc( 20 * sizeof(char*));
     if(result) {
-      MYSQL_ROW row;
-      unsigned int i = 0;
-      while((row = mysql_fetch_row(result))) {
-        baton->ids[i] = row[0];
-        i++;
+      baton->numRows = mysql_num_rows(result);
+      baton->rows = (Row**)malloc( baton->numRows * sizeof(Row*));
+      baton->numFields = mysql_num_fields(result);
+      baton->fieldNames = (char**)malloc( baton->numFields * sizeof(char*));
+
+      MYSQL_FIELD* mysqlField;
+      unsigned int fieldCounter = 0; 
+      while((mysqlField = mysql_fetch_field(result))) {
+        baton->fieldNames[fieldCounter] = mysqlField->name;
+        fieldCounter++;
+      }
+
+      MYSQL_ROW mysqlRow;
+      unsigned int rowCounter = 0;
+      while((mysqlRow = mysql_fetch_row(result))) {
+        Row* row = new Row();
+        row->fieldValues = (char**)malloc(mysql_num_fields(result) * sizeof(char*));
+        for(unsigned int i = 0; i < mysql_num_fields(result); i++) {
+          row->fieldValues[i] = mysqlRow[i];
+        }
+        baton->rows[rowCounter] = row;
+        rowCounter++;
       }
       mysql_free_result(result);
     }
@@ -38,21 +64,30 @@ static void query(uv_work_t* req) {
 static void afterQuery(uv_work_t* req, int bla) {
   QueryBaton* baton = static_cast<QueryBaton*>(req->data);
   Handle<Array> array = Array::New();
-  for(int i = 0; i < 20; i++) {
-    array->Set(Number::New(i), String::New(baton->ids[i]));
+
+  for(int i = 0; i < baton->numRows; i++) {
+    Handle<Object> obj = Object::New();
+    for(int j = 0; j < baton->numFields; j++) {
+      obj->Set(String::New(baton->fieldNames[j]), String::New(baton->rows[i]->fieldValues[j]));
+    }
+    free(baton->rows[i]->fieldValues);
+    array->Set(Number::New(i), obj);
   }
   Handle<Value> argv[] = { array };
   baton->callback->Call(Context::GetCurrent()->Global(), 1, argv);
   baton->callback.Dispose();
-  free(baton->ids);
+  free(baton->rows);
+  free(baton->fieldNames);
   delete baton;
 }
 
 Handle<Value> query(const Arguments& args) {
   HandleScope scope;
-  Handle<Function> callback = Handle<Function>::Cast(args[0]);
+  String::Utf8Value _query(args[0]->ToString());
+  Handle<Function> callback = Handle<Function>::Cast(args[1]);
   QueryBaton* baton = new QueryBaton();
   baton->request.data = baton;
+  baton->query = *_query;
   baton->callback = Persistent<Function>::New(callback);
   uv_queue_work(uv_default_loop(), &baton->request, query, afterQuery);
   return scope.Close(Undefined());

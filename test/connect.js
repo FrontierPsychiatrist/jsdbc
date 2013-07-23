@@ -13,6 +13,6 @@ try {
   process.exit(1);
 }
 
-mysql.query(function(data) {
+mysql.query("SELECT * FROM pxm_message", function(data) {
   console.log(data);
 })
