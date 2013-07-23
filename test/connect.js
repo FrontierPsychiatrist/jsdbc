@@ -13,7 +13,7 @@ try {
   process.exit(1);
 }
 
-mysql.query("SELECT m_body FROM pxm_message", function(data, err) {
+mysql.query("SELECT * FROM pxm_message", function(data, err) {
   if(err) {
     console.log("Fehler: " + err)
   } else {

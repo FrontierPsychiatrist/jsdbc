@@ -13,6 +13,27 @@ struct Row {
 };
 
 struct QueryBaton {
+  QueryBaton(Persistent<Function> _callback, char* _query) :
+    request(), callback(_callback), query(_query), rows(0), numRows(0), fieldNames(0), numFields(0),
+    errorText(0) {};
+  ~QueryBaton() {
+    if(rows != 0) {
+      for(int i = 0; i < numRows; i++) {
+        for(int j = 0; j < numFields; j++) {
+          delete[] rows[i]->fieldValues[j];
+        }
+        delete[] rows[i]->fieldValues;
+        delete rows[i];
+      }
+      delete[] rows;
+    }
+    if(fieldNames != 0) {
+      for(int i = 0; i < numFields; i++) {
+        delete[] fieldNames[i];
+      }
+      delete[] fieldNames;
+    }
+  }
   uv_work_t request;
   Persistent<Function> callback;
   char* query;
@@ -30,30 +51,35 @@ static void query(uv_work_t* req) {
   baton->errorText = 0;
   if(error) {
     baton->rows = 0;
+    //TODO: copy this
     baton->errorText = mysql_error(&mysql);
   } else {
     MYSQL_RES* result;
     result = mysql_store_result(&mysql);
     if(result) {
       baton->numRows = mysql_num_rows(result);
-      baton->rows = (Row**)malloc( baton->numRows * sizeof(Row*));
+      baton->rows = new Row*[baton->numRows];
       baton->numFields = mysql_num_fields(result);
-      baton->fieldNames = (char**)malloc( baton->numFields * sizeof(char*));
+      baton->fieldNames = new char*[baton->numFields];
 
       MYSQL_FIELD* mysqlField;
-      unsigned int fieldCounter = 0; 
+      unsigned int fieldCounter = 0;
       while((mysqlField = mysql_fetch_field(result))) {
-        baton->fieldNames[fieldCounter] = mysqlField->name;
+        baton->fieldNames[fieldCounter] = new char[mysqlField->name_length + 1];
+        memcpy(baton->fieldNames[fieldCounter], mysqlField->name, mysqlField->name_length + 1 );
         fieldCounter++;
       }
 
       MYSQL_ROW mysqlRow;
       unsigned int rowCounter = 0;
+      unsigned long* lengths;
       while((mysqlRow = mysql_fetch_row(result))) {
+        lengths = mysql_fetch_lengths(result);
         Row* row = new Row();
-        row->fieldValues = (char**)malloc(mysql_num_fields(result) * sizeof(char*));
+        row->fieldValues = new char*[mysql_num_fields(result)];
         for(unsigned int i = 0; i < mysql_num_fields(result); i++) {
-          row->fieldValues[i] = mysqlRow[i];
+          row->fieldValues[i] = new char[lengths[i]];
+          memcpy ( row->fieldValues[i], mysqlRow[i], lengths[i] );
         }
         baton->rows[rowCounter] = row;
         rowCounter++;
@@ -72,8 +98,6 @@ static void afterQuery(uv_work_t* req, int bla) {
     for(int j = 0; j < baton->numFields; j++) {
       obj->Set(String::New(baton->fieldNames[j]), String::New(baton->rows[i]->fieldValues[j]));
     }
-    free(baton->rows[i]->fieldValues);
-    delete(baton->rows[i]);
     array->Set(Number::New(i), obj);
   }
 
@@ -86,8 +110,6 @@ static void afterQuery(uv_work_t* req, int bla) {
   Handle<Value> argv[] = { array, error };
   baton->callback->Call(Context::GetCurrent()->Global(), 2, argv);
   baton->callback.Dispose();
-  free(baton->rows);
-  free(baton->fieldNames);
   delete baton;
 }
 
@@ -95,10 +117,8 @@ Handle<Value> query(const Arguments& args) {
   HandleScope scope;
   String::Utf8Value _query(args[0]->ToString());
   Handle<Function> callback = Handle<Function>::Cast(args[1]);
-  QueryBaton* baton = new QueryBaton();
+  QueryBaton* baton = new QueryBaton(Persistent<Function>::New(callback), *_query);
   baton->request.data = baton;
-  baton->query = *_query;
-  baton->callback = Persistent<Function>::New(callback);
   uv_queue_work(uv_default_loop(), &baton->request, query, afterQuery);
   return scope.Close(Undefined());
 }
