@@ -73,10 +73,18 @@ static void afterQuery(uv_work_t* req, int bla) {
       obj->Set(String::New(baton->fieldNames[j]), String::New(baton->rows[i]->fieldValues[j]));
     }
     free(baton->rows[i]->fieldValues);
+    delete(baton->rows[i]);
     array->Set(Number::New(i), obj);
   }
-  Handle<Value> argv[] = { array };
-  baton->callback->Call(Context::GetCurrent()->Global(), 1, argv);
+
+  Handle<Value> error;
+  if(baton->errorText != 0) {
+    error = String::New(baton->errorText);
+  } else {
+    error = Undefined();
+  }
+  Handle<Value> argv[] = { array, error };
+  baton->callback->Call(Context::GetCurrent()->Global(), 2, argv);
   baton->callback.Dispose();
   free(baton->rows);
   free(baton->fieldNames);
