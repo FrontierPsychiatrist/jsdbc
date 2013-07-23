@@ -20,15 +20,17 @@ struct QueryBaton {
   int numRows;
   char** fieldNames;
   int numFields;
+  const char* errorText;
 };
 
 static void query(uv_work_t* req) {
   QueryBaton* baton = static_cast<QueryBaton*>(req->data);
   int error = mysql_query(&mysql, baton->query);
   
+  baton->errorText = 0;
   if(error) {
     baton->rows = 0;
-    std::cout << mysql_error(&mysql) << std::endl;
+    baton->errorText = mysql_error(&mysql);
   } else {
     MYSQL_RES* result;
     result = mysql_store_result(&mysql);
