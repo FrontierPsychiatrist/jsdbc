@@ -48,7 +48,7 @@ static void afterQuery(uv_work_t* req, int bla) {
   delete baton;
 }
 
-Handle<Value> connect(const Arguments& args) {
+Handle<Value> query(const Arguments& args) {
   HandleScope scope;
   Handle<Function> callback = Handle<Function>::Cast(args[0]);
   QueryBaton* baton = new QueryBaton();
@@ -58,14 +58,26 @@ Handle<Value> connect(const Arguments& args) {
   return scope.Close(Undefined());
 }
 
-void init(Handle<Object> target) {
+Handle<Value> connect(const Arguments& args) {
+  HandleScope scope;
+  Handle<Object> params = Handle<Object>::Cast(args[0]);
+  String::Utf8Value _host(params->Get(String::New("host")));
+  String::Utf8Value _user(params->Get(String::New("user")));
+  String::Utf8Value _password(params->Get(String::New("password")));
+  Number _port(**params->Get(String::New("port"))->ToNumber());
+  String::Utf8Value _database(params->Get(String::New("database")));
   
   mysql_init(&mysql);
-  
-  if(!mysql_real_connect(&mysql, "localhost", "pxm", "pxm", "pxmboard", 3306, 0, 0)) {
-    std::cout << mysql_error(&mysql) << std::endl;
+  if(!mysql_real_connect(&mysql, *_host, *_user, *_password, *_database, _port.IntegerValue(), 0, 0)) {
+    return ThrowException(Exception::Error(String::New(mysql_error(&mysql))));
   }
-  target->Set(String::NewSymbol("login"),
+  return scope.Close(Undefined());
+}
+
+void init(Handle<Object> target) {
+  target->Set(String::NewSymbol("query"),
+              FunctionTemplate::New(query)->GetFunction());
+  target->Set(String::NewSymbol("connect"),
               FunctionTemplate::New(connect)->GetFunction());
 }
 NODE_MODULE(nativemysql, init)

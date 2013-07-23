@@ -1,5 +1,18 @@
 var mysql = require('../build/Release/nativemysql');
 
-mysql.login(function(res) {
-  console.log(res);
-});
+try {
+  mysql.connect({
+    host: 'localhost',
+    user: 'pxm',
+    password: 'pxm',
+    port: 3306,
+    database: 'pxmboard'
+  });
+} catch(e) {
+  console.log(e);
+  process.exit(1);
+}
+
+mysql.query(function(data) {
+  console.log(data);
+})
