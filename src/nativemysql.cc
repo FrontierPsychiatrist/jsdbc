@@ -20,6 +20,7 @@ struct QueryBaton {
     for(unsigned int i = 0; i < rows.size(); i++) {
       delete rows[i];
     }
+    callback.Dispose();
   }
   uv_work_t request;
   Persistent<Function> callback;
@@ -34,8 +35,7 @@ static void query(uv_work_t* req) {
   int error = mysql_query(&mysql, baton->query.c_str());
 
   if(error) {
-
-    //baton->errorText = mysql_error(&mysql);
+    baton->errorText = mysql_error(&mysql);
   } else {
     MYSQL_RES* result;
     result = mysql_store_result(&mysql);
@@ -83,7 +83,6 @@ static void afterQuery(uv_work_t* req, int bla) {
   Handle<Value> error = String::New(baton->errorText.c_str());
   Handle<Value> argv[] = { array, error };
   baton->callback->Call(Context::GetCurrent()->Global(), 2, argv);
-  baton->callback.Dispose();
   delete baton;
 }
 
