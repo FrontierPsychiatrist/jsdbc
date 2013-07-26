@@ -18,8 +18,23 @@ struct Row {
   }
 };
 
-struct SelectResult {
-  SelectResult() : rows(), fieldNames(), errorText() {};
+class Result {
+public:
+  virtual Handle<Value> getResultObject() = 0;
+  std::string errorText;
+  virtual ~Result() {};
+};
+
+class EmptyResult : public Result {
+  Handle<Value> getResultObject() {
+    HandleScope scope;
+    return scope.Close(Object::New());
+  }
+};
+
+class SelectResult : public Result {
+public:
+  SelectResult() : rows(), fieldNames() {};
   ~SelectResult() {
     for(unsigned int i = 0; i < rows.size(); i++) {
       delete rows[i];
@@ -27,7 +42,20 @@ struct SelectResult {
   }
   std::vector<Row*> rows;
   std::vector<std::string> fieldNames;
-  std::string errorText;
+  Handle<Value> getResultObject() {
+    HandleScope scope;
+    Handle<Array> array = Array::New();
+
+    for(unsigned int i = 0; i < rows.size(); i++) {
+      Handle<Object> obj = Object::New();
+      for(unsigned int j = 0; j < rows[i]->fieldValues.size(); j++) {
+        obj->Set(String::New(fieldNames[j].c_str()),
+          String::New(rows[i]->fieldValues[j]));
+      }
+      array->Set(Number::New(i), obj);
+    }
+    return scope.Close(array);
+  }
 };
 
 /**
@@ -41,11 +69,12 @@ struct QueryBaton {
     request(), callback(_callback), query(_query) {};
   ~QueryBaton() {
     callback.Dispose();
+    delete result;
   }
   uv_work_t request;
   Persistent<Function> callback;
   std::string query;
-  SelectResult result;
+  Result* result;
 };
 
 static void query(uv_work_t* req) {
@@ -53,18 +82,20 @@ static void query(uv_work_t* req) {
   int error = mysql_query(&mysql, baton->query.c_str());
 
   if(error) {
-    baton->result.errorText = mysql_error(&mysql);
+    baton->result = new EmptyResult();
+    baton->result->errorText = mysql_error(&mysql);
   } else {
     MYSQL_RES* result;
     result = mysql_store_result(&mysql);
     if(result) {
-      baton->result.rows.resize(mysql_num_rows(result));
-      baton->result.fieldNames.resize(mysql_num_fields(result));
+      SelectResult* selectResult = new SelectResult();
+      selectResult->rows.resize(mysql_num_rows(result));
+      selectResult->fieldNames.resize(mysql_num_fields(result));
 
       MYSQL_FIELD* mysqlField;
       unsigned int fieldCounter = 0;
       while((mysqlField = mysql_fetch_field(result))) {
-        baton->result.fieldNames[fieldCounter] = mysqlField->name;
+        selectResult->fieldNames[fieldCounter] = mysqlField->name;
         fieldCounter++;
       }
 
@@ -80,29 +111,20 @@ static void query(uv_work_t* req) {
           memcpy(temp, mysqlRow[i], lengths[i]);
           row->fieldValues[i] = temp;
         }
-        baton->result.rows[rowCounter] = row;
+        selectResult->rows[rowCounter] = row;
         rowCounter++;
       }
       mysql_free_result(result);
+      baton->result = selectResult;
     }
   }
 }
 
 static void afterQuery(uv_work_t* req, int bla) {
   QueryBaton* baton = static_cast<QueryBaton*>(req->data);
-  Handle<Array> array = Array::New();
-
-  for(unsigned int i = 0; i < baton->result.rows.size(); i++) {
-    Handle<Object> obj = Object::New();
-    for(unsigned int j = 0; j < baton->result.rows[i]->fieldValues.size(); j++) {
-      obj->Set(String::New(baton->result.fieldNames[j].c_str()),
-        String::New(baton->result.rows[i]->fieldValues[j]));
-    }
-    array->Set(Number::New(i), obj);
-  }
-
-  Handle<Value> error = String::New(baton->result.errorText.c_str());
-  Handle<Value> argv[] = { array, error };
+  Handle<Value> result = baton->result->getResultObject();
+  Handle<Value> error = String::New(baton->result->errorText.c_str());
+  Handle<Value> argv[] = { result, error };
   baton->callback->Call(Context::GetCurrent()->Global(), 2, argv);
   delete baton;
 }
