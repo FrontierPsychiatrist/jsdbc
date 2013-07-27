@@ -13,6 +13,14 @@ try {
   process.exit(1);
 }
 
+mysql.query("SELECT m_usermail FROM pxm_message WHERE m_usernickname = ? AND m_id = ?", ["moritz", 1], function(data, err) {
+  if(err) {
+    console.log(err);
+  } else {
+    console.log(data);
+  }
+});
+
 mysql.query("SELECT * FROM pxm_message WHERE m_id = 1", function(data, err) {
   if(err) {
     console.log("Fehler: " + err)
@@ -30,7 +38,7 @@ mysql.query("SELECT m_id FROM pxm_message WHERE m_id = 1", function(data, err) {
 });
 
 
-mysql.query("UPDATE pxm_message SET m_usermail = 'Hurr' WHERE m_id = 1",
+mysql.query("UPDATE pxm_message SET m_usermail = 'Hurr2' WHERE m_id = 1",
   function(result, err) {
     if(err) {
       console.log("Fehler: " + err);
