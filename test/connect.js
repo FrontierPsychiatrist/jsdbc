@@ -21,7 +21,7 @@ mysql.query("SELECT * FROM pxm_message WHERE m_id = 1", function(data, err) {
   }
 });
 
-mysql.query("SELECT * FROM pxm_message WHERE m_id = 1", function(data, err) {
+mysql.query("SELECT m_id FROM pxm_message WHERE m_id = 1", function(data, err) {
   if(err) {
     console.log("Fehler: " + err)
   } else {

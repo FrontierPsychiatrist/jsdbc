@@ -1,15 +1,13 @@
 #include <node.h>
 
-#include <mysql.h>
+#include <zdb/zdb.h>
 #include <vector>
 #include <string>
-#include <pthread.h>
 
 #include <iostream>
 using namespace v8;
 
-MYSQL mysql;
-pthread_mutex_t mutex;
+ConnectionPool_T pool;
 
 struct Row {
   std::vector<char*> fieldValues;
@@ -75,12 +73,6 @@ public:
   int affectedRows;
 };
 
-/**
-struct INSERT,UPDATE,DELETEResult {
-  
-};
-**/
-
 struct QueryBaton {
   QueryBaton(Persistent<Function> _callback, char* _query) :
     request(), callback(_callback), query(_query) {};
@@ -96,55 +88,49 @@ struct QueryBaton {
 
 static void query(uv_work_t* req) {
   QueryBaton* baton = static_cast<QueryBaton*>(req->data);
-  pthread_mutex_lock(&mutex);
-  int error = mysql_query(&mysql, baton->query.c_str());
-
-  if(error) {
-    baton->result = new EmptyResult(mysql_error(&mysql));
-  } else {
-    MYSQL_RES* result;
-    result = mysql_store_result(&mysql);
-    if(result) {//There are rows
+  int error = 0;
+  Connection_T con = ConnectionPool_getConnection(pool);
+  ResultSet_T result;
+  TRY
+    result = Connection_executeQuery(con, baton->query.c_str());
+  CATCH(SQLException)
+    baton->result = new EmptyResult(Connection_getLastError(con));
+    error = 1;
+  END_TRY;
+  
+  if(!error) {
+    int rowsChanged = Connection_rowsChanged(con);
+    int columnCount = ResultSet_getColumnCount(result); 
+    if(columnCount != 0) {//There are rows
       SelectResult* selectResult = new SelectResult();
-      selectResult->rows.resize(mysql_num_rows(result));
-      selectResult->fieldNames.resize(mysql_num_fields(result));
+      selectResult->fieldNames.resize( columnCount );
+      
+      for(int i = 1; i <= columnCount; i++) {
+        const char* columnName = ResultSet_getColumnName(result, i);  
+        selectResult->fieldNames[i - 1] = columnName;
+      } 
 
-      MYSQL_FIELD* mysqlField;
-      unsigned int fieldCounter = 0;
-      while((mysqlField = mysql_fetch_field(result))) {
-        selectResult->fieldNames[fieldCounter] = mysqlField->name;
-        fieldCounter++;
-      }
-
-      MYSQL_ROW mysqlRow;
       unsigned int rowCounter = 0;
-      unsigned long* lengths;
-      while((mysqlRow = mysql_fetch_row(result))) {
-        lengths = mysql_fetch_lengths(result);
+      while( ResultSet_next(result) ) {
         Row* row = new Row();
-        row->fieldValues.resize(mysql_num_fields(result));
-        for(unsigned int i = 0; i < mysql_num_fields(result); i++) {
-          char* temp = new char[lengths[i]];
-          memcpy(temp, mysqlRow[i], lengths[i]);
-          row->fieldValues[i] = temp;
+        row->fieldValues.resize( columnCount );
+        for(int i = 1; i <= columnCount; i++) {
+          long size = ResultSet_getColumnSize(result, i);
+          char* temp = new char[ size ];
+          memcpy(temp, ResultSet_getString(result, i), size + 1);
+          row->fieldValues[i - 1] = temp;
         }
-        selectResult->rows[rowCounter] = row;
+        selectResult->rows.push_back(row);
         rowCounter++;
       }
-      mysql_free_result(result);
       baton->result = selectResult;
-    } else {//There isn't a result set, so it wasn't a select
-      if(mysql_field_count(&mysql) == 0) {
+    } else {
         UpdateResult* updateResult = new UpdateResult();
-        updateResult->affectedRows = mysql_affected_rows(&mysql);
+        updateResult->affectedRows = rowsChanged;
         baton->result = updateResult;
-      } else {
-        //mysql_store_result should have returned data
-        baton->result = new EmptyResult("There should have been data");
-      }
     }
   }
-  pthread_mutex_unlock(&mutex);
+  Connection_close(con);
 }
 
 static void afterQuery(uv_work_t* req, int bla) {
@@ -174,11 +160,12 @@ Handle<Value> connect(const Arguments& args) {
   String::Utf8Value _password(params->Get(String::New("password")));
   Number _port(**params->Get(String::New("port"))->ToNumber());
   String::Utf8Value _database(params->Get(String::New("database")));
-  
-  mysql_init(&mysql);
-  if(!mysql_real_connect(&mysql, *_host, *_user, *_password, *_database, _port.IntegerValue(), 0, 0)) {
-    return ThrowException(Exception::Error(String::New(mysql_error(&mysql))));
-  }
+
+  char buffer[100];
+  sprintf(buffer, "mysql://%s:%d/%s?user=%s&password=%s", *_host, (int)_port.IntegerValue(), *_database, *_user, *_password);
+  URL_T url = URL_new(buffer);
+  pool = ConnectionPool_new(url);
+  ConnectionPool_start(pool);
   return scope.Close(Undefined());
 }
 
@@ -187,6 +174,5 @@ void init(Handle<Object> target) {
               FunctionTemplate::New(query)->GetFunction());
   target->Set(String::NewSymbol("connect"),
               FunctionTemplate::New(connect)->GetFunction());
-  pthread_mutex_init(&mutex, NULL);
 }
 NODE_MODULE(nativemysql, init)
