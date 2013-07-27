@@ -3,11 +3,13 @@
 #include <mysql.h>
 #include <vector>
 #include <string>
+#include <pthread.h>
 
 #include <iostream>
 using namespace v8;
 
 MYSQL mysql;
+pthread_mutex_t mutex;
 
 struct Row {
   std::vector<char*> fieldValues;
@@ -20,12 +22,16 @@ struct Row {
 
 class Result {
 public:
+  Result(const char* _errorText) : errorText(_errorText) {};
+  Result() {};
   virtual Handle<Value> getResultObject() = 0;
   std::string errorText;
   virtual ~Result() {};
 };
 
 class EmptyResult : public Result {
+public:
+  EmptyResult(const char* errorText) : Result(errorText) {};
   Handle<Value> getResultObject() {
     HandleScope scope;
     return scope.Close(Object::New());
@@ -58,6 +64,17 @@ public:
   }
 };
 
+class UpdateResult : public Result {
+public:
+  Handle<Value> getResultObject() {
+    HandleScope scope;
+    Handle<Object> obj = Object::New();
+    obj->Set(String::NewSymbol("affectedRows"), Number::New(affectedRows));
+    return scope.Close(obj);
+  }
+  int affectedRows;
+};
+
 /**
 struct INSERT,UPDATE,DELETEResult {
   
@@ -79,15 +96,15 @@ struct QueryBaton {
 
 static void query(uv_work_t* req) {
   QueryBaton* baton = static_cast<QueryBaton*>(req->data);
+  pthread_mutex_lock(&mutex);
   int error = mysql_query(&mysql, baton->query.c_str());
 
   if(error) {
-    baton->result = new EmptyResult();
-    baton->result->errorText = mysql_error(&mysql);
+    baton->result = new EmptyResult(mysql_error(&mysql));
   } else {
     MYSQL_RES* result;
     result = mysql_store_result(&mysql);
-    if(result) {
+    if(result) {//There are rows
       SelectResult* selectResult = new SelectResult();
       selectResult->rows.resize(mysql_num_rows(result));
       selectResult->fieldNames.resize(mysql_num_fields(result));
@@ -116,8 +133,18 @@ static void query(uv_work_t* req) {
       }
       mysql_free_result(result);
       baton->result = selectResult;
+    } else {//There isn't a result set, so it wasn't a select
+      if(mysql_field_count(&mysql) == 0) {
+        UpdateResult* updateResult = new UpdateResult();
+        updateResult->affectedRows = mysql_affected_rows(&mysql);
+        baton->result = updateResult;
+      } else {
+        //mysql_store_result should have returned data
+        baton->result = new EmptyResult("There should have been data");
+      }
     }
   }
+  pthread_mutex_unlock(&mutex);
 }
 
 static void afterQuery(uv_work_t* req, int bla) {
@@ -160,5 +187,6 @@ void init(Handle<Object> target) {
               FunctionTemplate::New(query)->GetFunction());
   target->Set(String::NewSymbol("connect"),
               FunctionTemplate::New(connect)->GetFunction());
+  pthread_mutex_init(&mutex, NULL);
 }
 NODE_MODULE(nativemysql, init)
