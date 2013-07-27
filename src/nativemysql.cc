@@ -75,6 +75,10 @@ public:
 
 struct BatonWithResult {
   BatonWithResult(Persistent<Function> _callback) : callback(_callback) {};
+  virtual ~BatonWithResult() {
+    delete result;
+    callback.Dispose();
+  };
   Result* result;
   Persistent<Function> callback;
 };
@@ -82,10 +86,6 @@ struct BatonWithResult {
 struct QueryBaton : public BatonWithResult {
   QueryBaton(Persistent<Function> _callback, char* _query) :
     BatonWithResult(_callback), request(), query(_query) {};
-  ~QueryBaton() {
-    callback.Dispose();
-    delete result;
-  }
   uv_work_t request;
   std::string query;
 };
@@ -104,8 +104,6 @@ struct PreparedStatementBaton : public BatonWithResult {
     for(int i = 0; i < values.size(); i++) {
       delete[] values[i];
     }
-    callback.Dispose();
-    delete result;
   }
   uv_work_t request;
   std::string query;
@@ -277,6 +275,8 @@ Handle<Value> query(const Arguments& args) {
     QueryBaton* baton = new QueryBaton(Persistent<Function>::New(callback), *_query);
     baton->request.data = baton;
     uv_queue_work(uv_default_loop(), &baton->request, query, afterQuery);  
+  } else {
+    return ThrowException(Exception::Error(String::New("Unknown function signature. Either use [string], [string ,function] or [string, array, function].")));
   }
   
   return scope.Close(Undefined());

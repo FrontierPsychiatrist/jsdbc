@@ -18,7 +18,7 @@ mysql.query("SELECT m_usermail FROM pxm_message WHERE m_usernickname = ? AND m_i
   console.log(data);
 });
 
-mysql.query("SELECT * FROM pxm_message WHERE m_id = 1", function(data, err) {
+mysql.query("SELECT * FROM pxm_message", function(data, err) {
   if(err) throw err;
   console.log(data);
 });
