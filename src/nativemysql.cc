@@ -158,14 +158,18 @@ Handle<Value> connect(const Arguments& args) {
   String::Utf8Value _host(params->Get(String::New("host")));
   String::Utf8Value _user(params->Get(String::New("user")));
   String::Utf8Value _password(params->Get(String::New("password")));
-  Number _port(**params->Get(String::New("port"))->ToNumber());
+  Handle<Number> _port(params->Get(String::New("port"))->ToNumber());
   String::Utf8Value _database(params->Get(String::New("database")));
 
-  char buffer[100];
-  sprintf(buffer, "mysql://%s:%d/%s?user=%s&password=%s", *_host, (int)_port.IntegerValue(), *_database, *_user, *_password);
+  char buffer[512];
+  sprintf(buffer, "mysql://%s:%d/%s?user=%s&password=%s", *_host, (int)_port->IntegerValue(), *_database, *_user, *_password);
   URL_T url = URL_new(buffer);
   pool = ConnectionPool_new(url);
-  ConnectionPool_start(pool);
+  TRY
+    ConnectionPool_start(pool);
+  CATCH(SQLException)
+    return ThrowException(Exception::Error(String::New(Exception_frame.message)));
+  END_TRY;
   return scope.Close(Undefined());
 }
 
