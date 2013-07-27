@@ -4,112 +4,12 @@
 #include <vector>
 #include <string>
 
-#include <iostream>
+#include "baton.h"
+#include "result.h"
+
 using namespace v8;
 
 ConnectionPool_T pool;
-
-struct Row {
-  std::vector<char*> fieldValues;
-  ~Row() {
-    for(unsigned int i = 0; i < fieldValues.size(); i++) {
-      delete[] fieldValues[i];
-    }
-  }
-};
-
-class Result {
-public:
-  Result(const char* _errorText) : errorText(_errorText) {};
-  Result() {};
-  virtual Handle<Value> getResultObject() = 0;
-  std::string errorText;
-  virtual ~Result() {};
-};
-
-class EmptyResult : public Result {
-public:
-  EmptyResult(const char* errorText) : Result(errorText) {};
-  Handle<Value> getResultObject() {
-    HandleScope scope;
-    return scope.Close(Object::New());
-  }
-};
-
-class SelectResult : public Result {
-public:
-  SelectResult() : rows(), fieldNames() {};
-  ~SelectResult() {
-    for(unsigned int i = 0; i < rows.size(); i++) {
-      delete rows[i];
-    }
-  }
-  std::vector<Row*> rows;
-  std::vector<std::string> fieldNames;
-  Handle<Value> getResultObject() {
-    HandleScope scope;
-    Handle<Array> array = Array::New();
-
-    for(unsigned int i = 0; i < rows.size(); i++) {
-      Handle<Object> obj = Object::New();
-      for(unsigned int j = 0; j < rows[i]->fieldValues.size(); j++) {
-        obj->Set(String::New(fieldNames[j].c_str()),
-          String::New(rows[i]->fieldValues[j]));
-      }
-      array->Set(Number::New(i), obj);
-    }
-    return scope.Close(array);
-  }
-};
-
-class UpdateResult : public Result {
-public:
-  Handle<Value> getResultObject() {
-    HandleScope scope;
-    Handle<Object> obj = Object::New();
-    obj->Set(String::NewSymbol("affectedRows"), Number::New(affectedRows));
-    return scope.Close(obj);
-  }
-  int affectedRows;
-};
-
-struct BatonWithResult {
-  BatonWithResult(Persistent<Function> _callback) : callback(_callback) {};
-  virtual ~BatonWithResult() {
-    delete result;
-    callback.Dispose();
-  };
-  Result* result;
-  Persistent<Function> callback;
-};
-
-struct QueryBaton : public BatonWithResult {
-  QueryBaton(Persistent<Function> _callback, char* _query) :
-    BatonWithResult(_callback), request(), query(_query) {};
-  uv_work_t request;
-  std::string query;
-};
-
-struct QueryBatonWithoutCallback {
-  QueryBatonWithoutCallback(char* _query) : query(_query) {};
-  uv_work_t request;
-  std::string query;
-  std::string errorText;
-};
-
-struct PreparedStatementBaton : public BatonWithResult {
-  PreparedStatementBaton(char* _query, int _numValues, Persistent<Function> _callback) :
-    BatonWithResult(_callback), query(_query), values(_numValues) {};
-  ~PreparedStatementBaton() {
-    for(int i = 0; i < values.size(); i++) {
-      delete[] values[i];
-    }
-  }
-  uv_work_t request;
-  std::string query;
-  int _numValues;
-  std::vector<char*> values;
-};
 
 static Result* parseResult(Connection_T* con, ResultSet_T* result) {
   Result* out;

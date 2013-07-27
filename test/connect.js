@@ -34,3 +34,19 @@ mysql.query("UPDATE pxm_message SET m_usermail = 'Hurr2' WHERE m_id = 1",
     if(err) throw err;
     console.log(result);
 });
+
+/*mysql.transact( function(con) {
+  con.query('INSERT INTO ...', function(result, err) {
+    if(err) {
+      con.rollback();
+    } else {
+      con.query('INSERT INTO ...', function(result, err) {
+        if(err) {
+          con.rollback();
+        } else {
+          con.commit();
+        }
+      })
+    }
+  });
+});*/
