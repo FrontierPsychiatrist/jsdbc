@@ -48,7 +48,7 @@ After connecting you can execute basic queries like this
     //--> {affectedRows: 1}
 
     //you can leave the callback function and no result parsing will take place.
-    mysql.query("UPDATE table SET name = 'MCS' WHERE mid = 1",);
+    mysql.query("UPDATE table SET name = 'MCS' WHERE mid = 1");
 
 Prepared statements
 -------------------

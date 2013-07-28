@@ -1,11 +1,10 @@
 #include <node.h>
 
 #include <zdb/zdb.h>
-#include <vector>
-#include <string>
 
 #include "baton.h"
 #include "result.h"
+#include "worker_functions.h"
 
 #include <iostream>
 
@@ -13,153 +12,13 @@ using namespace v8;
 
 ConnectionPool_T pool;
 
-static Result* parseResult(Connection_T* connection, ResultSet_T* result) {
-  Result* out;
-  int rowsChanged = Connection_rowsChanged(*connection);
-  int columnCount = ResultSet_getColumnCount(*result); 
-  if(columnCount != 0) {//There are rows
-    SelectResult* selectResult = new SelectResult();
-    selectResult->fieldNames.resize( columnCount );
-    
-    for(int i = 1; i <= columnCount; i++) {
-      const char* columnName = ResultSet_getColumnName(*result, i);  
-      selectResult->fieldNames[i - 1] = columnName;
-    } 
-
-    unsigned int rowCounter = 0;
-    while( ResultSet_next(*result) ) {
-      Row* row = new Row();
-      row->fieldValues.resize( columnCount );
-      for(int i = 1; i <= columnCount; i++) {
-        long size = ResultSet_getColumnSize(*result, i);
-        char* temp = new char[ size ];
-        memcpy(temp, ResultSet_getString(*result, i), size + 1);
-        row->fieldValues[i - 1] = temp;
-      }
-      selectResult->rows.push_back(row);
-      rowCounter++;
-    }
-    out = selectResult;
-  } else {
-      UpdateResult* updateResult = new UpdateResult();
-      updateResult->affectedRows = rowsChanged;
-      out = updateResult;
-  }
-  return out;
-}
-
-static void query(uv_work_t* req) {
-  QueryBaton* baton = static_cast<QueryBaton*>(req->data);
-  int error = 0;
-  Connection_T connection;
-  if(baton->connection == 0) {
-    connection = ConnectionPool_getConnection(pool);
-  } else {
-    connection = *baton->connection;
-  }
-  ResultSet_T result;
-  TRY
-    result = Connection_executeQuery(connection, baton->query.c_str());
-  CATCH(SQLException)
-    baton->result = new EmptyResult(Connection_getLastError(connection));
-    error = 1;
-  END_TRY;
-  
-  if(!error) {
-    baton->result = parseResult(&connection, &result);
-  }
-  if(baton->connection == 0) {
-    Connection_close(connection);
-  }
-}
-
-static void afterQuery(uv_work_t* req, int bla) {
-  BatonWithResult* baton = static_cast<BatonWithResult*>(req->data);
-  Handle<Value> result = baton->result->getResultObject();
-  Handle<Value> error = String::New(baton->result->errorText.c_str());
-  Handle<Value> argv[] = { result, error };
-  baton->callback->Call(Context::GetCurrent()->Global(), 2, argv);
-  delete baton;
-}
-
-static void queryWithoutResult(uv_work_t* req) {
-  QueryBatonWithoutCallback* baton = static_cast<QueryBatonWithoutCallback*>(req->data);
-  int error = 0;
-  Connection_T connection;
-  if(baton->connection == 0) {
-    connection = ConnectionPool_getConnection(pool);
-  } else {
-    connection = *baton->connection;
-  }
-  ResultSet_T result;
-  TRY
-    result = Connection_executeQuery(connection, baton->query.c_str());
-  CATCH(SQLException)
-    error = 1;
-    baton->errorText = Connection_getLastError(connection);
-  END_TRY;
-  if(baton->connection == 0) {
-    Connection_close(connection);
-  }
-}
-
-static void afterQueryWithoutResult(uv_work_t* req, int bla) {
-  QueryBatonWithoutCallback* baton = static_cast<QueryBatonWithoutCallback*>(req->data);
-  //todo: if error text is not empty throw an error
-  delete baton;
-}
-
-static void preparedStatement(uv_work_t* req) {
-  PreparedStatementBaton* baton = static_cast<PreparedStatementBaton*>(req->data);
-  Connection_T connection;
-  if(baton->connection == 0) {
-    connection = ConnectionPool_getConnection(pool);
-  } else {
-    connection = *baton->connection;
-  }
-  PreparedStatement_T pstmt;
-  int error = 0;
-  TRY
-    pstmt = Connection_prepareStatement(connection, baton->query.c_str());
-  CATCH(SQLException)
-    baton->result = new EmptyResult(Connection_getLastError(connection));
-    error = 1;
-  END_TRY;
-
-  if(!error) {
-    for(int i = 0; i < baton->values.size() && !error; i++) {
-      TRY
-        PreparedStatement_setString(pstmt, i+1, baton->values[i]);
-      CATCH(SQLException)
-        error = 1;
-        baton->result = new EmptyResult(Connection_getLastError(connection));
-      END_TRY;
-    }
-  }
-  ResultSet_T result;
-  if(!error) {
-    TRY
-      result = PreparedStatement_executeQuery(pstmt);
-    CATCH(SQLException)
-      error = 1;
-      baton->result = new EmptyResult(Connection_getLastError(connection));
-    END_TRY;
-  }
-
-  if(!error) {
-    Result* res = parseResult(&connection, &result);
-    baton->result = res;
-  }
-  if(baton->connection == 0) {
-    Connection_close(connection);
-  }
-}
-
-Handle<Value> parseAndFire(const Arguments& args, Connection_T* connection) {
+Baton* createBatonFromArgs(const Arguments& args) {
   HandleScope scope;
   
   if(!args[0]->IsString()) {
-    return ThrowException(Exception::Error(String::New("First argument must be a string")));
+    QueryBatonWithoutCallback* baton = new QueryBatonWithoutCallback("");
+    baton->creationError = "First argument must be a string";
+    return baton;
   }
 
   String::Utf8Value _query(args[0]->ToString());
@@ -168,22 +27,23 @@ Handle<Value> parseAndFire(const Arguments& args, Connection_T* connection) {
     //Just a query without a callback, so we can ignore result set parsing
     QueryBatonWithoutCallback* baton = new QueryBatonWithoutCallback(*_query);
     baton->request.data = baton;
-    if(connection != 0) {
-      baton->connection = connection;
-    }
-    uv_queue_work(uv_default_loop(), &baton->request, queryWithoutResult, afterQueryWithoutResult);
+    return baton;
   } else if(args[1]->IsArray()) {
     //Prepared Statement
     if(args.Length() < 3) {
-      return ThrowException(Exception::Error(String::New("Three arguments are needed")));
+      QueryBatonWithoutCallback* baton = new QueryBatonWithoutCallback("");
+      baton->creationError = "Three arguments are needed";
+      return baton;
     } else if(!args[2]->IsFunction()) {
-      return ThrowException(Exception::Error(String::New("Third argument must be a function")));
+      QueryBatonWithoutCallback* baton = new QueryBatonWithoutCallback("");
+      baton->creationError = "Third argument must be a function";
+      return baton;
     }
     
     Handle<Array> values = Handle<Array>::Cast(args[1]);
     Handle<Function> callback = Handle<Function>::Cast(args[2]);
     PreparedStatementBaton* baton = new PreparedStatementBaton(*_query, values->Length(), Persistent<Function>::New(callback));
-    for(int i = 0; i < values->Length(); i++) {
+    for(unsigned int i = 0; i < values->Length(); i++) {
       Local<Value> val = values->Get(i);
       //Todo: make this typed and not only strings
       String::Utf8Value vals(val);
@@ -192,29 +52,33 @@ Handle<Value> parseAndFire(const Arguments& args, Connection_T* connection) {
       baton->values[i] = temp;
     }
     baton->request.data = baton;
-    if(connection != 0) {
-      baton->connection = connection;
-    }
-    uv_queue_work(uv_default_loop(), &baton->request, preparedStatement, afterQuery);
+    return baton;
   } else if(args[1]->IsFunction()) {
     //normal query
     Handle<Function> callback = Handle<Function>::Cast(args[1]);
     QueryBaton* baton = new QueryBaton(Persistent<Function>::New(callback), *_query);
     baton->request.data = baton;
-    if(connection != 0) {
-      baton->connection = connection;
-    }
-    uv_queue_work(uv_default_loop(), &baton->request, query, afterQuery);  
+    return baton;
   } else {
-    return ThrowException(Exception::Error(String::New("Unknown function signature. Either use [string], [string ,function] or [string, array, function].")));
+    QueryBatonWithoutCallback* baton = new QueryBatonWithoutCallback("");
+    baton->creationError = "Unknown function signature. Either use [string], [string ,function] or [string, array, function].";
+    return baton;
   }
-  
-  return scope.Close(Undefined());
+  scope.Close(Undefined());
+  return 0;
 }
 
 Handle<Value> query(const Arguments& args) {
   HandleScope scope;
-  return scope.Close(parseAndFire(args, 0));
+  Handle<Value> out = Undefined();
+  Baton* baton = createBatonFromArgs(args);
+  if(baton->creationError != 0) {
+    out = scope.Close(ThrowException(Exception::Error(String::New(baton->creationError))));
+  } else {
+    baton->connectionHolder = new StandardConnectionHolder();
+    baton->queueWork();
+  }
+  return scope.Close(out);
 }
 
 class Transact : public node::ObjectWrap {
@@ -235,7 +99,7 @@ public:
   ~Transact() {
     std::cout << "The transact dtor has been called" << std::endl;
   }
-  Handle<Value> v8Object() { return handle_; };
+  Persistent<Object>& v8Object() { return handle_; };
   static void init(Handle<Object> exports) {
     Local<FunctionTemplate> tpl = FunctionTemplate::New();
     tpl->SetClassName(String::NewSymbol("Transact"));
@@ -252,16 +116,22 @@ Handle<Function> Transact::constructor;
 
 Handle<Value> Transact::query(const Arguments& args) {
   HandleScope scope;
-  Transact* transact = node::ObjectWrap::Unwrap<Transact>(args.This());
   
-  //Create query baton WITH attached connection object
-  return scope.Close(parseAndFire(args, &transact->connection));
+  Handle<Value> out = Undefined();
+  Baton* baton = createBatonFromArgs(args);
+  if(baton->creationError != 0) {
+    out = scope.Close(ThrowException(Exception::Error(String::New(baton->creationError))));
+  } else {
+    Transact* transact = node::ObjectWrap::Unwrap<Transact>(args.This());  
+    baton->connectionHolder = new TransactionalConnectionHolder(transact->connection);
+    baton->queueWork();
+  }
+  return scope.Close(out);
 }
 
 Handle<Value> Transact::rollback(const Arguments& args) {
   HandleScope scope;
   Transact* transact = node::ObjectWrap::Unwrap<Transact>(args.This());
-  std::cout << "Rolling back?" << std::endl;
   Connection_rollback(transact->connection);
   Connection_close(transact->connection);
   return scope.Close(Undefined()); 
