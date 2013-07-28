@@ -13,21 +13,35 @@ try {
   process.exit(1);
 }
 
-mysql.query("SELECT m_usermail FROM pxm_message WHERE m_usernickname = ? AND m_id = ?", ["moritz", 1], function(data, err) {
+mysql.transact( function(con) {
+  con.query('INSERT INTO transtest (name ,id) VALUES ("hurr", 1)', function(result, err) {
+    if(err) {
+      console.log(err);
+      con.rollback();
+    } else {
+      console.log(result);
+      con.query('SELECT * FROM transtest', function(result, err) {
+        if(err) {
+          console.log(err);
+          con.rollback();
+        } else {
+          console.log(result);
+          con.commit();
+        }
+      })
+    }
+  });
+});
+
+mysql.query("SELECT m_usermail FROM pxm_message WHERE m_usernickname = ? AND m_id = ?", ["moritz", 3], function(data, err) {
   if(err) throw err;
   console.log(data);
 });
 
-mysql.query("SELECT * FROM pxm_message", function(data, err) {
+mysql.query("SELECT * FROM pxm_message WHERE m_id = 1", function(data, err) {
   if(err) throw err;
   console.log(data);
 });
-
-mysql.query("SELECT m_id FROM pxm_message WHERE m_id = 1", function(data, err) {
-  if(err) throw err;
-  console.log(data);
-});
-
 
 mysql.query("UPDATE pxm_message SET m_usermail = 'Hurr2' WHERE m_id = 1",
   function(result, err) {
@@ -35,18 +49,4 @@ mysql.query("UPDATE pxm_message SET m_usermail = 'Hurr2' WHERE m_id = 1",
     console.log(result);
 });
 
-/*mysql.transact( function(con) {
-  con.query('INSERT INTO ...', function(result, err) {
-    if(err) {
-      con.rollback();
-    } else {
-      con.query('INSERT INTO ...', function(result, err) {
-        if(err) {
-          con.rollback();
-        } else {
-          con.commit();
-        }
-      })
-    }
-  });
-});*/
+mysql.query('SELECT * FROM pxm_message');

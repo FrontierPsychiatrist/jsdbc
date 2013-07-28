@@ -31,7 +31,9 @@ Connect with
 
 These values are non optional and must be set.
 
-After this you can query like so
+Querying
+--------
+After connecting you can execute basic queries like this
 
     mysql.query('SELECT * FROM table', function(data, err) {
       if(err) throw err;
@@ -48,6 +50,8 @@ After this you can query like so
     //you can leave the callback function and no result parsing will take place.
     mysql.query("UPDATE table SET name = 'MCS' WHERE mid = 1",);
 
+Prepared statements
+-------------------
 Prepared Statements are also allowed, they are used if the second argument is an array:
     
     mysql.query('SELECT * FROM table WHERE id = ?', [1], function(data, err) {
@@ -58,10 +62,35 @@ Prepared Statements are also allowed, they are used if the second argument is an
 
 The callback function is mandatory for prepared statements.
 
+Transactions
+------------
+Note: transactions are in an early state and may cause memory leaks or crash.
+
+Transactions are used like this:
+
+    mysql.trans( function(connection) {
+      connection.query('INSERT INTO table (id, name) VALUES (1, "FrontierPsychiatrist")', function(data, err) {
+        if(err) {
+          connection.rollback();
+          throw err;
+        } else {
+          connection.query('SELECT * FROM table WERE id = ?', [1], function(data, err) {//contains an error!
+            if(err) {
+              connection.rollback();
+              throw err;
+            } else {
+              connection.commit();
+            }
+          })
+        }
+      );
+    });
+
+You pass a function that takes a connection object to mysql.trans and everything executed on this object will be transactional. Beware, rollback and commit will close the connection, so no further queries are allowed after executing them. This does not work on MySQL MyISAM tables as they don't support transactions.
+
 Future features
 ---------------
 * Other databases may be included, as libzdb supports them it should be an easy integration.
-* Transactions
 * currently all fields in a prepared statement are treated as strings, this will be improved.
 * A method to stream result sets. Currently, all data selected will be loaded into memory.
-* a method to obtain the lastInserId for inserts
+* a method to obtain the lastInserId from inserts

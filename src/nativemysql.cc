@@ -7,13 +7,15 @@
 #include "baton.h"
 #include "result.h"
 
+#include <iostream>
+
 using namespace v8;
 
 ConnectionPool_T pool;
 
-static Result* parseResult(Connection_T* con, ResultSet_T* result) {
+static Result* parseResult(Connection_T* connection, ResultSet_T* result) {
   Result* out;
-  int rowsChanged = Connection_rowsChanged(*con);
+  int rowsChanged = Connection_rowsChanged(*connection);
   int columnCount = ResultSet_getColumnCount(*result); 
   if(columnCount != 0) {//There are rows
     SelectResult* selectResult = new SelectResult();
@@ -49,19 +51,26 @@ static Result* parseResult(Connection_T* con, ResultSet_T* result) {
 static void query(uv_work_t* req) {
   QueryBaton* baton = static_cast<QueryBaton*>(req->data);
   int error = 0;
-  Connection_T con = ConnectionPool_getConnection(pool);
+  Connection_T connection;
+  if(baton->connection == 0) {
+    connection = ConnectionPool_getConnection(pool);
+  } else {
+    connection = *baton->connection;
+  }
   ResultSet_T result;
   TRY
-    result = Connection_executeQuery(con, baton->query.c_str());
+    result = Connection_executeQuery(connection, baton->query.c_str());
   CATCH(SQLException)
-    baton->result = new EmptyResult(Connection_getLastError(con));
+    baton->result = new EmptyResult(Connection_getLastError(connection));
     error = 1;
   END_TRY;
   
   if(!error) {
-    baton->result = parseResult(&con, &result);
+    baton->result = parseResult(&connection, &result);
   }
-  Connection_close(con);
+  if(baton->connection == 0) {
+    Connection_close(connection);
+  }
 }
 
 static void afterQuery(uv_work_t* req, int bla) {
@@ -76,15 +85,22 @@ static void afterQuery(uv_work_t* req, int bla) {
 static void queryWithoutResult(uv_work_t* req) {
   QueryBatonWithoutCallback* baton = static_cast<QueryBatonWithoutCallback*>(req->data);
   int error = 0;
-  Connection_T con = ConnectionPool_getConnection(pool);
+  Connection_T connection;
+  if(baton->connection == 0) {
+    connection = ConnectionPool_getConnection(pool);
+  } else {
+    connection = *baton->connection;
+  }
   ResultSet_T result;
   TRY
-    result = Connection_executeQuery(con, baton->query.c_str());
+    result = Connection_executeQuery(connection, baton->query.c_str());
   CATCH(SQLException)
     error = 1;
-    baton->errorText = Connection_getLastError(con);
+    baton->errorText = Connection_getLastError(connection);
   END_TRY;
-  Connection_close(con);
+  if(baton->connection == 0) {
+    Connection_close(connection);
+  }
 }
 
 static void afterQueryWithoutResult(uv_work_t* req, int bla) {
@@ -95,13 +111,18 @@ static void afterQueryWithoutResult(uv_work_t* req, int bla) {
 
 static void preparedStatement(uv_work_t* req) {
   PreparedStatementBaton* baton = static_cast<PreparedStatementBaton*>(req->data);
-  Connection_T con = ConnectionPool_getConnection(pool);
+  Connection_T connection;
+  if(baton->connection == 0) {
+    connection = ConnectionPool_getConnection(pool);
+  } else {
+    connection = *baton->connection;
+  }
   PreparedStatement_T pstmt;
   int error = 0;
   TRY
-    pstmt = Connection_prepareStatement(con, baton->query.c_str());
+    pstmt = Connection_prepareStatement(connection, baton->query.c_str());
   CATCH(SQLException)
-    baton->result = new EmptyResult(Connection_getLastError(con));
+    baton->result = new EmptyResult(Connection_getLastError(connection));
     error = 1;
   END_TRY;
 
@@ -111,7 +132,7 @@ static void preparedStatement(uv_work_t* req) {
         PreparedStatement_setString(pstmt, i+1, baton->values[i]);
       CATCH(SQLException)
         error = 1;
-        baton->result = new EmptyResult(Connection_getLastError(con));
+        baton->result = new EmptyResult(Connection_getLastError(connection));
       END_TRY;
     }
   }
@@ -121,18 +142,20 @@ static void preparedStatement(uv_work_t* req) {
       result = PreparedStatement_executeQuery(pstmt);
     CATCH(SQLException)
       error = 1;
-      baton->result = new EmptyResult(Connection_getLastError(con));
+      baton->result = new EmptyResult(Connection_getLastError(connection));
     END_TRY;
   }
 
   if(!error) {
-    Result* res = parseResult(&con, &result);
+    Result* res = parseResult(&connection, &result);
     baton->result = res;
   }
-  Connection_close(con);
+  if(baton->connection == 0) {
+    Connection_close(connection);
+  }
 }
 
-Handle<Value> query(const Arguments& args) {
+Handle<Value> parseAndFire(const Arguments& args, Connection_T* connection) {
   HandleScope scope;
   
   if(!args[0]->IsString()) {
@@ -145,10 +168,11 @@ Handle<Value> query(const Arguments& args) {
     //Just a query without a callback, so we can ignore result set parsing
     QueryBatonWithoutCallback* baton = new QueryBatonWithoutCallback(*_query);
     baton->request.data = baton;
+    if(connection != 0) {
+      baton->connection = connection;
+    }
     uv_queue_work(uv_default_loop(), &baton->request, queryWithoutResult, afterQueryWithoutResult);
-  }
-
-  if(args[1]->IsArray()) {
+  } else if(args[1]->IsArray()) {
     //Prepared Statement
     if(args.Length() < 3) {
       return ThrowException(Exception::Error(String::New("Three arguments are needed")));
@@ -168,17 +192,102 @@ Handle<Value> query(const Arguments& args) {
       baton->values[i] = temp;
     }
     baton->request.data = baton;
+    if(connection != 0) {
+      baton->connection = connection;
+    }
     uv_queue_work(uv_default_loop(), &baton->request, preparedStatement, afterQuery);
   } else if(args[1]->IsFunction()) {
     //normal query
     Handle<Function> callback = Handle<Function>::Cast(args[1]);
     QueryBaton* baton = new QueryBaton(Persistent<Function>::New(callback), *_query);
     baton->request.data = baton;
+    if(connection != 0) {
+      baton->connection = connection;
+    }
     uv_queue_work(uv_default_loop(), &baton->request, query, afterQuery);  
   } else {
     return ThrowException(Exception::Error(String::New("Unknown function signature. Either use [string], [string ,function] or [string, array, function].")));
   }
   
+  return scope.Close(Undefined());
+}
+
+Handle<Value> query(const Arguments& args) {
+  HandleScope scope;
+  return scope.Close(parseAndFire(args, 0));
+}
+
+class Transact : public node::ObjectWrap {
+private:
+  static Handle<Value> query(const Arguments& args);
+  static Handle<Value> rollback(const Arguments& args);
+  static Handle<Value> commit(const Arguments& args);
+  static Handle<Value> close(const Arguments& args);
+  Connection_T connection;
+  static Handle<Function> constructor;
+public:
+  Transact() {
+    Handle<Object> o = constructor->NewInstance();
+    this->Wrap(o);
+    connection = ConnectionPool_getConnection(pool);
+    Connection_beginTransaction(connection);
+  };
+  ~Transact() {
+    std::cout << "The transact dtor has been called" << std::endl;
+  }
+  Handle<Value> v8Object() { return handle_; };
+  static void init(Handle<Object> exports) {
+    Local<FunctionTemplate> tpl = FunctionTemplate::New();
+    tpl->SetClassName(String::NewSymbol("Transact"));
+    tpl->InstanceTemplate()->SetInternalFieldCount(1);
+    NODE_SET_PROTOTYPE_METHOD(tpl, "query", query);
+    NODE_SET_PROTOTYPE_METHOD(tpl, "commit", commit);
+    NODE_SET_PROTOTYPE_METHOD(tpl, "rollback", rollback);
+    NODE_SET_PROTOTYPE_METHOD(tpl, "close", close);
+    constructor = Persistent<Function>::New(tpl->GetFunction());
+  }
+};
+
+Handle<Function> Transact::constructor;
+
+Handle<Value> Transact::query(const Arguments& args) {
+  HandleScope scope;
+  Transact* transact = node::ObjectWrap::Unwrap<Transact>(args.This());
+  
+  //Create query baton WITH attached connection object
+  return scope.Close(parseAndFire(args, &transact->connection));
+}
+
+Handle<Value> Transact::rollback(const Arguments& args) {
+  HandleScope scope;
+  Transact* transact = node::ObjectWrap::Unwrap<Transact>(args.This());
+  std::cout << "Rolling back?" << std::endl;
+  Connection_rollback(transact->connection);
+  Connection_close(transact->connection);
+  return scope.Close(Undefined()); 
+}
+
+Handle<Value> Transact::commit(const Arguments& args) {
+  HandleScope scope;
+  Transact* transact = node::ObjectWrap::Unwrap<Transact>(args.This());
+  Connection_commit(transact->connection);
+  Connection_close(transact->connection);
+  return scope.Close(Undefined());
+}
+
+Handle<Value> Transact::close(const Arguments& args) {
+  HandleScope scope;
+  Transact* transact = node::ObjectWrap::Unwrap<Transact>(args.This());
+  Connection_close(transact->connection);
+  return scope.Close(Undefined());
+}
+
+Handle<Value> transact(const Arguments& args) {
+  HandleScope scope;
+  Transact* trans = new Transact();
+  Handle<Function> cb = Handle<Function>::Cast(args[0]);
+  Handle<Value> argv[] = { trans->v8Object() };
+  cb->Call(Context::GetCurrent()->Global(), 1, argv);
   return scope.Close(Undefined());
 }
 
@@ -208,5 +317,8 @@ void init(Handle<Object> target) {
               FunctionTemplate::New(query)->GetFunction());
   target->Set(String::NewSymbol("connect"),
               FunctionTemplate::New(connect)->GetFunction());
+  target->Set(String::NewSymbol("transact"),
+              FunctionTemplate::New(transact)->GetFunction());
+  Transact::init(target);
 }
 NODE_MODULE(nativemysql, init)
