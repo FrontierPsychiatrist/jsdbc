@@ -68,15 +68,17 @@ Note: transactions are in an early state and may cause memory leaks or crash.
 
 Transactions are used like this:
 
-    mysql.trans( function(connection) {
+    mysql.transact( function(connection) {
       connection.query('INSERT INTO table (id, name) VALUES (1, "FrontierPsychiatrist")', function(data, err) {
         if(err) {
           connection.rollback();
+          connection.close();
           throw err;
         } else {
           connection.query('SELECT * FROM table WERE id = ?', [1], function(data, err) {//contains an error!
             if(err) {
               connection.rollback();
+              connection.close();
               throw err;
             } else {
               connection.commit();
@@ -86,7 +88,7 @@ Transactions are used like this:
       );
     });
 
-You pass a function that takes a connection object to mysql.trans and everything executed on this object will be transactional. Beware, rollback and commit will close the connection, so no further queries are allowed after executing them. This does not work on MySQL MyISAM tables as they don't support transactions.
+You pass a function that takes a connection object to mysql.transact and everything executed on this object will be transactional. Beware and commit will close the connection, so no further queries are allowed after executing commit. This does not work on MySQL MyISAM tables as they don't support transactions.
 
 Future features
 ---------------

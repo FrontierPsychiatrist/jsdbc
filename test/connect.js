@@ -24,6 +24,7 @@ mysql.transact( function(con) {
         if(err) {
           console.log(err);
           con.rollback();
+          con.close();
         } else {
           console.log(result);
           con.commit();

@@ -133,7 +133,6 @@ Handle<Value> Transact::rollback(const Arguments& args) {
   HandleScope scope;
   Transact* transact = node::ObjectWrap::Unwrap<Transact>(args.This());
   Connection_rollback(transact->connection);
-  Connection_close(transact->connection);
   return scope.Close(Undefined()); 
 }
 
