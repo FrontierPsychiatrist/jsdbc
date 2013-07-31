@@ -55,7 +55,13 @@ void queryWork(uv_work_t* req) {
   END_TRY;
   
   if(!error) {
-    baton->result = parseResult(&connection, &result);
+    if(!baton->useResultSet) {
+      baton->result = parseResult(&connection, &result);
+    } else {
+      baton->result = new StreamingResult(result);
+      //TODO: no! No one will close the connection!
+      return;
+    }
   }
   baton->connectionHolder->closeConnection();
 }

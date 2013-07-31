@@ -5,6 +5,8 @@
 #include <string>
 #include <v8.h>
 
+#include "result_set.h"
+
 using namespace v8;
 
 struct Row {
@@ -70,4 +72,21 @@ public:
   }
   int affectedRows;
 };
+
+class StreamingResult : public Result {
+public:
+  StreamingResult(ResultSet_T _resultSet_t) {
+    resultSet = new ResultSet(_resultSet_t);
+  };
+  ~StreamingResult() {
+    delete resultSet;
+  }
+  Handle<Value> getResultObject() {
+    HandleScope scope;
+    return scope.Close(resultSet->v8Object());
+  };
+private:
+  ResultSet* resultSet;
+};
+
 #endif

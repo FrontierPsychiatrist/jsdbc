@@ -56,13 +56,16 @@ struct Baton {
 };
 
 struct BatonWithResult : public Baton {
-  BatonWithResult(Persistent<Function> _callback, const char* _query) : Baton(_query), callback(_callback) {};
+  BatonWithResult(Persistent<Function> _callback, const char* _query) : Baton(_query), callback(_callback), useResultSet(false) {};
   virtual ~BatonWithResult() {
-    delete result;
+    //TODO: no! All results will have to be deleted
+    if(!useResultSet)
+      delete result;
     callback.Dispose();
   };
   Result* result;
   Persistent<Function> callback;
+  bool useResultSet;
 };
 
 struct QueryBaton : public BatonWithResult {

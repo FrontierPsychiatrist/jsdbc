@@ -5,6 +5,7 @@
 #include "baton.h"
 #include "result.h"
 #include "worker_functions.h"
+#include "result_set.h"
 
 #include <iostream>
 
@@ -120,7 +121,7 @@ Handle<Value> Transact::query(const Arguments& args) {
   Handle<Value> out = Undefined();
   Baton* baton = createBatonFromArgs(args);
   if(baton->creationError != 0) {
-    out = scope.Close(ThrowException(Exception::Error(String::New(baton->creationError))));
+    out = ThrowException(Exception::Error(String::New(baton->creationError)));
   } else {
     Transact* transact = node::ObjectWrap::Unwrap<Transact>(args.This());  
     baton->connectionHolder = new TransactionalConnectionHolder(transact->connection);
@@ -181,6 +182,20 @@ Handle<Value> connect(const Arguments& args) {
   return scope.Close(Undefined());
 }
 
+Handle<Value> stream(const Arguments& args) {
+  HandleScope scope;
+  Handle<Value> out = Undefined();
+  BatonWithResult* baton = static_cast<BatonWithResult*>(createBatonFromArgs(args));
+  if(baton->creationError != 0) {
+    out = ThrowException(Exception::Error(String::New(baton->creationError)));
+  } else {
+    baton->connectionHolder = new StandardConnectionHolder();
+    baton->useResultSet = true;
+    baton->queueWork();
+  }
+  return scope.Close(out);
+}
+
 void init(Handle<Object> target) {
   target->Set(String::NewSymbol("query"),
               FunctionTemplate::New(query)->GetFunction());
@@ -188,6 +203,9 @@ void init(Handle<Object> target) {
               FunctionTemplate::New(connect)->GetFunction());
   target->Set(String::NewSymbol("transact"),
               FunctionTemplate::New(transact)->GetFunction());
+  target->Set(String::NewSymbol("stream"),
+              FunctionTemplate::New(stream)->GetFunction());
   Transact::init(target);
+  ResultSet::init(target);
 }
 NODE_MODULE(nativemysql, init)
