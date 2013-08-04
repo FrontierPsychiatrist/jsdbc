@@ -6,6 +6,7 @@
 #include "result.h"
 #include "worker_functions.h"
 #include "result_set.h"
+#include "transact.h"
 
 #include <cstring>
 #include <iostream>
@@ -13,6 +14,7 @@
 
 using namespace v8;
 
+namespace nodezdb {
 ConnectionPool_T pool;
 
 Baton* createBatonFromArgs(const Arguments& args) {
@@ -84,81 +86,6 @@ Handle<Value> query(const Arguments& args) {
   return scope.Close(out);
 }
 
-class Transact : public node::ObjectWrap {
-private:
-  static Handle<Value> query(const Arguments& args);
-  static Handle<Value> rollback(const Arguments& args);
-  static Handle<Value> commit(const Arguments& args);
-  static Handle<Value> close(const Arguments& args);
-  Connection_T connection;
-  static Handle<Function> constructor;
-  bool connectionClosed;
-public:
-  Transact() : connectionClosed(false) {
-    Handle<Object> o = constructor->NewInstance();
-    this->Wrap(o);
-    connection = ConnectionPool_getConnection(pool);
-    Connection_beginTransaction(connection);
-  };
-  ~Transact() {
-    if(!connectionClosed) {
-      Connection_close(connection);
-    }
-    std::cout << "The transact dtor has been called" << std::endl;
-  }
-  Persistent<Object>& v8Object() { return handle_; };
-  static void init(Handle<Object> exports) {
-    Local<FunctionTemplate> tpl = FunctionTemplate::New();
-    tpl->SetClassName(String::NewSymbol("Transact"));
-    tpl->InstanceTemplate()->SetInternalFieldCount(1);
-    NODE_SET_PROTOTYPE_METHOD(tpl, "query", query);
-    NODE_SET_PROTOTYPE_METHOD(tpl, "commit", commit);
-    NODE_SET_PROTOTYPE_METHOD(tpl, "rollback", rollback);
-    NODE_SET_PROTOTYPE_METHOD(tpl, "close", close);
-    constructor = Persistent<Function>::New(tpl->GetFunction());
-  }
-};
-
-Handle<Function> Transact::constructor;
-
-Handle<Value> Transact::query(const Arguments& args) {
-  HandleScope scope;
-  Handle<Value> out = Undefined();
-  Baton* baton = createBatonFromArgs(args);
-  if(baton->creationError != 0) {
-    out = ThrowException(Exception::Error(String::New(baton->creationError)));
-  } else {
-    Transact* transact = node::ObjectWrap::Unwrap<Transact>(args.This());
-    baton->connectionHolder = new TransactionalConnectionHolder(transact->connection);
-    baton->queueWork();
-  }
-  return scope.Close(out);
-}
-
-Handle<Value> Transact::rollback(const Arguments& args) {
-  HandleScope scope;
-  Transact* transact = node::ObjectWrap::Unwrap<Transact>(args.This());
-  Connection_rollback(transact->connection);
-  return scope.Close(Undefined());
-}
-
-Handle<Value> Transact::commit(const Arguments& args) {
-  HandleScope scope;
-  Transact* transact = node::ObjectWrap::Unwrap<Transact>(args.This());
-  Connection_commit(transact->connection);
-  return scope.Close(Undefined());
-}
-
-Handle<Value> Transact::close(const Arguments& args) {
-  HandleScope scope;
-  Transact* transact = node::ObjectWrap::Unwrap<Transact>(args.This());
-  if(!transact->connectionClosed) {
-    Connection_close(transact->connection);
-    transact->connectionClosed = true;
-  }
-  return scope.Close(Undefined());
-}
-
 Handle<Value> transact(const Arguments& args) {
   HandleScope scope;
   Transact* trans = new Transact();
@@ -225,3 +152,4 @@ void init(Handle<Object> target) {
   ResultSet::init(target);
 }
 NODE_MODULE(nativemysql, init)
+}

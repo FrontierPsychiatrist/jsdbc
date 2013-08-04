@@ -9,6 +9,7 @@
 
 using namespace v8;
 
+namespace nodezdb {
 struct Row {
   std::vector<char*> fieldValues;
   ~Row() {
@@ -87,5 +88,5 @@ private:
   ResultSet_T resultSet_T;
   Connection_T connection;
 };
-
+}
 #endif

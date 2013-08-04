@@ -2,7 +2,7 @@
   "targets": [
     {
       "target_name": "nativemysql",
-      "sources": ["src/nativemysql.cc", "src/worker_functions.cc", "src/result_set.cc"],
+      "sources": ["src/nativemysql.cc", "src/worker_functions.cc", "src/result_set.cc", "src/transact.cc"],
       "link_settings" : {
         "libraries": ["-lzdb"]
       },

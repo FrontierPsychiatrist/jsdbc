@@ -9,6 +9,8 @@
 
 using namespace v8;
 
+namespace nodezdb {
+
 static Result* parseResult(Connection_T* connection, ResultSet_T* result) {
   Result* out;
   int rowsChanged = Connection_rowsChanged(*connection);
@@ -139,4 +141,5 @@ void preparedStatement(uv_work_t* req) {
     }
   }
   baton->connectionHolder->closeConnection();
+}
 }

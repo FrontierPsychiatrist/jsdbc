@@ -12,6 +12,7 @@
 
 using namespace v8;
 
+namespace nodezdb {
 extern ConnectionPool_T pool;
 
 class ConnectionHolder {
@@ -30,7 +31,7 @@ public:
 class StandardConnectionHolder : public ConnectionHolder {
 public:
   StandardConnectionHolder() {
-    connection = ConnectionPool_getConnection(pool);
+    connection = ConnectionPool_getConnection(nodezdb::pool);
   };
   void closeConnection() {
     Connection_close(connection);
@@ -96,5 +97,5 @@ struct PreparedStatementBaton : public BatonWithResult {
     uv_queue_work(uv_default_loop(), &request, preparedStatement, afterQuery);
   };
 };
-
+}
 #endif

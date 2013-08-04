@@ -1,5 +1,6 @@
 #include "result_set.h"
 
+namespace nodezdb {
 Persistent<Function> ResultSet::constructor;
 
 Handle<Value> ResultSet::next(const Arguments& args) {
@@ -24,4 +25,5 @@ Handle<Value> ResultSet::close(const Arguments& args) {
     resultSet->connectionClosed = true;
   }
   return scope.Close(Undefined());
+}
 }

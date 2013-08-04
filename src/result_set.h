@@ -7,6 +7,7 @@
 #include <iostream>
 using namespace v8;
 
+namespace nodezdb {
 class ResultSet : public node::ObjectWrap {
 private:
   ResultSet_T resultSet;
@@ -43,5 +44,5 @@ public:
     constructor = Persistent<Function>::New(tpl->GetFunction());
   }
 };
-
+}
 #endif
