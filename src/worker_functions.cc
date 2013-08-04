@@ -59,7 +59,6 @@ void queryWork(uv_work_t* req) {
       baton->result = parseResult(&connection, &result);
     } else {
       baton->result = new StreamingResult(result, baton->connectionHolder->getConnection());
-      //TODO: no! No one will close the connection!
       return;
     }
   }
@@ -67,12 +66,14 @@ void queryWork(uv_work_t* req) {
 }
 
 void afterQuery(uv_work_t* req, int bla) {
+  HandleScope scope;
   BatonWithResult* baton = static_cast<BatonWithResult*>(req->data);
   Handle<Value> result = baton->result->getResultObject();
   Handle<Value> error = String::New(baton->result->errorText.c_str());
   Handle<Value> argv[] = { result, error };
   baton->callback->Call(Context::GetCurrent()->Global(), 2, argv);
   delete baton;
+  scope.Close(Undefined());
 }
 
 void queryWithoutResult(uv_work_t* req) {
@@ -128,8 +129,12 @@ void preparedStatement(uv_work_t* req) {
   }
 
   if(!error) {
-    Result* res = parseResult(&connection, &result);
-    baton->result = res;
+    if(!baton->useResultSet) {
+      baton->result = parseResult(&connection, &result);
+    } else {
+      baton->result = new StreamingResult(result, baton->connectionHolder->getConnection());
+      return;
+    }
   }
   baton->connectionHolder->closeConnection();
 }

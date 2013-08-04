@@ -19,5 +19,12 @@ mysql.stream("SELECT * FROM pxm_message", function(resultSet, err) {
     console.log(resultSet.getString(1) + " " + resultSet.getString(5));
   }
   resultSet.close();
-  delete resultSet;
+});
+
+mysql.stream("SELECT * FROM pxm_message WHERE m_id = ?", [1], function(resultSet, err) {
+  if (err) throw err;
+    while(resultSet.next()) {
+      console.log(resultSet.getString(1) + " " + resultSet.getString(5));
+    }
+  resultSet.close();
 });

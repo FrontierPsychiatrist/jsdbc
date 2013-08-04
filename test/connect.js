@@ -18,6 +18,7 @@ mysql.transact( function(con) {
     if(err) {
       console.log(err);
       con.rollback();
+      con.close();
     } else {
       console.log(result);
       con.query('SELECT * FROM transtest', function(result, err) {
@@ -28,6 +29,7 @@ mysql.transact( function(con) {
         } else {
           console.log(result);
           con.commit();
+          con.close();
         }
       })
     }

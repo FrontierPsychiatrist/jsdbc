@@ -82,17 +82,34 @@ Transactions are used like this:
               throw err;
             } else {
               connection.commit();
+              connection.close();
             }
           })
         }
       );
     });
 
-You pass a function that takes a connection object to mysql.transact and everything executed on this object will be transactional. Beware and commit will close the connection, so no further queries are allowed after executing commit. This does not work on MySQL MyISAM tables as they don't support transactions.
+You pass a function that takes a connection object to mysql.transact and everything executed on this object will be transactional. Make sure to close your connection! If the connection object gets garbage collected by V8 the connection will be closed, but garbage collection does only happen that often and the connection pool isn't infinite.
+
+Result Sets
+-----------
+The standard query approach loads all resulting rows into memory. This can be unfortunate if you have a large number of rows selected. To overcome this, the standard streaming result set approach is implemented.
+
+    mysql.stream("SELECT * FROM table WHERE age > ?", [18], function(resultSet, err) {
+      if (err) throw err;
+      while(resultSet.next()) {
+        console.log(resultSet.getString(1));
+      }
+      resultSet.close();
+    });
+
+Again, it is important that you close your result set to return the connection to the pool.
+
+* Currently, only getString is implemented
+* mixing transactions and streaming result sets is not yet possible
 
 Future features
 ---------------
 * Other databases may be included, as libzdb supports them it should be an easy integration.
 * currently all fields in a prepared statement are treated as strings, this will be improved.
-* A method to stream result sets. Currently, all data selected will be loaded into memory.
 * a method to obtain the lastInserId from inserts

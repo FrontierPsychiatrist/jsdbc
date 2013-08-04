@@ -22,12 +22,13 @@ public:
     }
     std::cout << "Result Set dtor called" << std::endl;
   };
-  Persistent<Object>& v8Object() { 
+  Handle<Object> v8Object() {
+    HandleScope scope;
     if(this->handle_.IsEmpty()) {
       Handle<Object> o = constructor->NewInstance();
       this->Wrap(o);
     }
-    return handle_;
+    return scope.Close(handle_);
   };
   static Handle<Value> next(const Arguments& args);
   static Handle<Value> getString(const Arguments& args);
