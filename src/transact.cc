@@ -12,6 +12,7 @@ Handle<Value> Transact::query(const Arguments& args) {
   Baton* baton = createBatonFromArgs(args);
   if(baton->creationError != 0) {
     out = ThrowException(Exception::Error(String::New(baton->creationError)));
+    delete baton;
   } else {
     Transact* transact = node::ObjectWrap::Unwrap<Transact>(args.This());  
     baton->connectionHolder = new TransactionalConnectionHolder(transact->connection);

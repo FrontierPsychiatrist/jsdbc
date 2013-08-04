@@ -79,6 +79,7 @@ Handle<Value> query(const Arguments& args) {
   Baton* baton = createBatonFromArgs(args);
   if(baton->creationError != 0) {
     out = scope.Close(ThrowException(Exception::Error(String::New(baton->creationError))));
+    delete baton;
   } else {
     baton->connectionHolder = new StandardConnectionHolder();
     baton->queueWork();
