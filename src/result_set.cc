@@ -19,7 +19,9 @@ Handle<Value> ResultSet::getString(const Arguments& args) {
 Handle<Value> ResultSet::close(const Arguments& args) {
   HandleScope scope;
   ResultSet* resultSet = node::ObjectWrap::Unwrap<ResultSet>(args.This());
-  Connection_close(resultSet->connection);
-  resultSet->connectionClosed = true;
+  if(!resultSet->connectionClosed) {
+    Connection_close(resultSet->connection);
+    resultSet->connectionClosed = true;
+  }
   return scope.Close(Undefined());
 }

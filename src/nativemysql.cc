@@ -152,8 +152,10 @@ Handle<Value> Transact::commit(const Arguments& args) {
 Handle<Value> Transact::close(const Arguments& args) {
   HandleScope scope;
   Transact* transact = node::ObjectWrap::Unwrap<Transact>(args.This());
-  Connection_close(transact->connection);
-  transact->connectionClosed = true;
+  if(!transact->connectionClosed) {
+    Connection_close(transact->connection);
+    transact->connectionClosed = true;
+  }
   return scope.Close(Undefined());
 }
 
