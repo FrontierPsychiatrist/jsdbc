@@ -75,18 +75,17 @@ public:
 
 class StreamingResult : public Result {
 public:
-  StreamingResult(ResultSet_T _resultSet_t) {
-    resultSet = new ResultSet(_resultSet_t);
-  };
-  ~StreamingResult() {
-    delete resultSet;
-  }
+  StreamingResult(ResultSet_T _resultSet_T, Connection_T _connection)
+    : resultSet_T(_resultSet_T), connection(_connection) {};
+  ~StreamingResult() {};
   Handle<Value> getResultObject() {
     HandleScope scope;
+    ResultSet* resultSet = new ResultSet(resultSet_T, connection);
     return scope.Close(resultSet->v8Object());
   };
 private:
-  ResultSet* resultSet;
+  ResultSet_T resultSet_T;
+  Connection_T connection;
 };
 
 #endif

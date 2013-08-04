@@ -58,9 +58,7 @@ struct Baton {
 struct BatonWithResult : public Baton {
   BatonWithResult(Persistent<Function> _callback, const char* _query) : Baton(_query), callback(_callback), useResultSet(false) {};
   virtual ~BatonWithResult() {
-    //TODO: no! All results will have to be deleted
-    if(!useResultSet)
-      delete result;
+    delete result;
     callback.Dispose();
   };
   Result* result;

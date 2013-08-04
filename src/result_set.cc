@@ -15,3 +15,11 @@ Handle<Value> ResultSet::getString(const Arguments& args) {
   ResultSet* resultSet = node::ObjectWrap::Unwrap<ResultSet>(args.This());
   return scope.Close(String::New(ResultSet_getString(resultSet->resultSet, _i->IntegerValue())));
 }
+
+Handle<Value> ResultSet::close(const Arguments& args) {
+  HandleScope scope;
+  ResultSet* resultSet = node::ObjectWrap::Unwrap<ResultSet>(args.This());
+  Connection_close(resultSet->connection);
+  resultSet->connectionClosed = true;
+  return scope.Close(Undefined());
+}

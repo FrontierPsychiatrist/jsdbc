@@ -90,14 +90,18 @@ private:
   static Handle<Value> close(const Arguments& args);
   Connection_T connection;
   static Handle<Function> constructor;
+  bool connectionClosed;
 public:
-  Transact() {
+  Transact() : connectionClosed(false) {
     Handle<Object> o = constructor->NewInstance();
     this->Wrap(o);
     connection = ConnectionPool_getConnection(pool);
     Connection_beginTransaction(connection);
   };
   ~Transact() {
+    if(!connectionClosed) {
+      Connection_close(connection);
+    }
     std::cout << "The transact dtor has been called" << std::endl;
   }
   Persistent<Object>& v8Object() { return handle_; };
@@ -117,7 +121,6 @@ Handle<Function> Transact::constructor;
 
 Handle<Value> Transact::query(const Arguments& args) {
   HandleScope scope;
-  
   Handle<Value> out = Undefined();
   Baton* baton = createBatonFromArgs(args);
   if(baton->creationError != 0) {
@@ -141,7 +144,6 @@ Handle<Value> Transact::commit(const Arguments& args) {
   HandleScope scope;
   Transact* transact = node::ObjectWrap::Unwrap<Transact>(args.This());
   Connection_commit(transact->connection);
-  Connection_close(transact->connection);
   return scope.Close(Undefined());
 }
 
@@ -149,6 +151,7 @@ Handle<Value> Transact::close(const Arguments& args) {
   HandleScope scope;
   Transact* transact = node::ObjectWrap::Unwrap<Transact>(args.This());
   Connection_close(transact->connection);
+  transact->connectionClosed = true;
   return scope.Close(Undefined());
 }
 
