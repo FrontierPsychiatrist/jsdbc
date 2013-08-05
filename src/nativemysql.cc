@@ -8,6 +8,7 @@
 #include "result_set.h"
 
 #include <iostream>
+#include <cstring>
 
 using namespace v8;
 
@@ -15,7 +16,7 @@ ConnectionPool_T pool;
 
 Baton* createBatonFromArgs(const Arguments& args) {
   HandleScope scope;
-  
+
   if(!args[0]->IsString()) {
     QueryBatonWithoutCallback* baton = new QueryBatonWithoutCallback("");
     baton->creationError = "First argument must be a string";
@@ -40,7 +41,7 @@ Baton* createBatonFromArgs(const Arguments& args) {
       baton->creationError = "Third argument must be a function";
       return baton;
     }
-    
+
     Handle<Array> values = Handle<Array>::Cast(args[1]);
     Handle<Function> callback = Handle<Function>::Cast(args[2]);
     PreparedStatementBaton* baton = new PreparedStatementBaton(*_query, values->Length(), Persistent<Function>::New(callback));
@@ -126,7 +127,7 @@ Handle<Value> Transact::query(const Arguments& args) {
   if(baton->creationError != 0) {
     out = ThrowException(Exception::Error(String::New(baton->creationError)));
   } else {
-    Transact* transact = node::ObjectWrap::Unwrap<Transact>(args.This());  
+    Transact* transact = node::ObjectWrap::Unwrap<Transact>(args.This());
     baton->connectionHolder = new TransactionalConnectionHolder(transact->connection);
     baton->queueWork();
   }
@@ -137,7 +138,7 @@ Handle<Value> Transact::rollback(const Arguments& args) {
   HandleScope scope;
   Transact* transact = node::ObjectWrap::Unwrap<Transact>(args.This());
   Connection_rollback(transact->connection);
-  return scope.Close(Undefined()); 
+  return scope.Close(Undefined());
 }
 
 Handle<Value> Transact::commit(const Arguments& args) {
