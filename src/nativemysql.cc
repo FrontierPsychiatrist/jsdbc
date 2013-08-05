@@ -7,8 +7,9 @@
 #include "worker_functions.h"
 #include "result_set.h"
 
-#include <iostream>
 #include <cstring>
+#include <iostream>
+#include <sstream>
 
 using namespace v8;
 
@@ -172,11 +173,20 @@ Handle<Value> connect(const Arguments& args) {
   String::Utf8Value _user(params->Get(String::New("user")));
   String::Utf8Value _password(params->Get(String::New("password")));
   Handle<Number> _port(params->Get(String::New("port"))->ToNumber());
-  String::Utf8Value _database(params->Get(String::New("database")));
+  const std::string database( *String::Utf8Value( params->Get(String::New("database") ) ) );
 
-  char buffer[512];
-  sprintf(buffer, "mysql://%s:%d/%s?user=%s&password=%s", *_host, _port->IntegerValue(), *_database, *_user, *_password);
-  URL_T url = URL_new(buffer);
+  std::ostringstream buffer;
+  buffer << "mysql://" << *_host << ":" << _port->IntegerValue() << "/";
+
+  if( database != "undefined" && database != "null" )
+  {
+    buffer << database << "/";
+  }
+
+  buffer << "?user=" << *_user << "&password=" << *_password;
+  const std::string connectionString = buffer.str();
+
+  URL_T url = URL_new( connectionString.c_str() );
   pool = ConnectionPool_new(url);
   TRY
     ConnectionPool_start(pool);
