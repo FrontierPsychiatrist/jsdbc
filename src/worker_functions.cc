@@ -5,20 +5,22 @@
 
 #include "baton.h"
 
+#include <cstring>
+
 using namespace v8;
 
 static Result* parseResult(Connection_T* connection, ResultSet_T* result) {
   Result* out;
   int rowsChanged = Connection_rowsChanged(*connection);
-  int columnCount = ResultSet_getColumnCount(*result); 
+  int columnCount = ResultSet_getColumnCount(*result);
   if(columnCount != 0) {//There are rows
     SelectResult* selectResult = new SelectResult();
     selectResult->fieldNames.resize( columnCount );
-    
+
     for(int i = 1; i <= columnCount; i++) {
-      const char* columnName = ResultSet_getColumnName(*result, i);  
+      const char* columnName = ResultSet_getColumnName(*result, i);
       selectResult->fieldNames[i - 1] = columnName;
-    } 
+    }
 
     unsigned int rowCounter = 0;
     while( ResultSet_next(*result) ) {
@@ -53,7 +55,7 @@ void queryWork(uv_work_t* req) {
     baton->result = new EmptyResult(Connection_getLastError(connection));
     error = 1;
   END_TRY;
-  
+
   if(!error) {
     if(!baton->useResultSet) {
       baton->result = parseResult(&connection, &result);
