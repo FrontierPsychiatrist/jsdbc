@@ -1,7 +1,8 @@
-var mysql = require('../build/Release/nativemysql');
+var mysql = require('../build/Release/jsdbc');
 
 try {
   mysql.connect({
+    type: 'mysql',
     host: 'localhost',
     user: 'pxm',
     password: 'pxm',
@@ -21,7 +22,7 @@ mysql.transact( function(con) {
       con.close();
     } else {
       console.log(result);
-      con.query('SELECT * FROM transtest', function(result, err) {
+      con.query('SELEKT * FROM transtest', function(result, err) {
         if(err) {
           console.log(err);
           con.rollback();

@@ -7,6 +7,7 @@
 #include "worker_functions.h"
 #include "result_set.h"
 #include "transact.h"
+#include "exceptions.h"
 
 #include <cstring>
 #include <iostream>
@@ -17,13 +18,13 @@ using namespace v8;
 namespace nodezdb {
 ConnectionPool_T pool;
 
-Baton* createBatonFromArgs(const Arguments& args) {
+Baton* createBatonFromArgs(const Arguments& args) throw(ArgParseException) {
   HandleScope scope;
 
   if(!args[0]->IsString()) {
-    QueryBatonWithoutCallback* baton = new QueryBatonWithoutCallback("");
-    baton->creationError = "First argument must be a string";
-    return baton;
+    ArgParseException exc("First argument must be a string");
+    scope.Close(Undefined());
+    throw exc;
   }
 
   String::Utf8Value _query(args[0]->ToString());
@@ -32,17 +33,18 @@ Baton* createBatonFromArgs(const Arguments& args) {
     //Just a query without a callback, so we can ignore result set parsing
     QueryBatonWithoutCallback* baton = new QueryBatonWithoutCallback(*_query);
     baton->request.data = baton;
+    scope.Close(Undefined());
     return baton;
   } else if(args[1]->IsArray()) {
     //Prepared Statement
     if(args.Length() < 3) {
-      QueryBatonWithoutCallback* baton = new QueryBatonWithoutCallback("");
-      baton->creationError = "Three arguments are needed";
-      return baton;
+      ArgParseException exc("Three arguments are needed");
+      scope.Close(Undefined());
+      throw exc;
     } else if(!args[2]->IsFunction()) {
-      QueryBatonWithoutCallback* baton = new QueryBatonWithoutCallback("");
-      baton->creationError = "Third argument must be a function";
-      return baton;
+      ArgParseException exc("Third argument must be a function");
+      scope.Close(Undefined());
+      throw exc;
     }
 
     Handle<Array> values = Handle<Array>::Cast(args[1]);
@@ -57,17 +59,19 @@ Baton* createBatonFromArgs(const Arguments& args) {
       baton->values[i] = temp;
     }
     baton->request.data = baton;
+    scope.Close(Undefined());
     return baton;
   } else if(args[1]->IsFunction()) {
     //normal query
     Handle<Function> callback = Handle<Function>::Cast(args[1]);
     QueryBaton* baton = new QueryBaton(Persistent<Function>::New(callback), *_query);
     baton->request.data = baton;
+    scope.Close(Undefined());
     return baton;
   } else {
-    QueryBatonWithoutCallback* baton = new QueryBatonWithoutCallback("");
-    baton->creationError = "Unknown function signature. Either use [string], [string ,function] or [string, array, function].";
-    return baton;
+    ArgParseException exc("Unknown function signature. Either use [string], [string ,function] or [string, array, function].");
+    scope.Close(Undefined());
+    throw exc;
   }
   scope.Close(Undefined());
   return 0;
@@ -76,19 +80,21 @@ Baton* createBatonFromArgs(const Arguments& args) {
 Handle<Value> query(const Arguments& args) {
   HandleScope scope;
   Handle<Value> out = Undefined();
-  Baton* baton = createBatonFromArgs(args);
-  if(baton->creationError != 0) {
-    out = scope.Close(ThrowException(Exception::Error(String::New(baton->creationError))));
-    delete baton;
-  } else {
+  try {
+    Baton* baton = createBatonFromArgs(args);
     baton->connectionHolder = new StandardConnectionHolder();
     baton->queueWork();
+  } catch(ArgParseException e) {
+    out = ThrowException(Exception::Error(String::New(e.what())));
   }
   return scope.Close(out);
 }
 
 Handle<Value> transact(const Arguments& args) {
   HandleScope scope;
+  if(!args[0]->IsFunction()) {
+    return scope.Close(ThrowException(Exception::Error(String::New("transact needs a function as its first parameter."))));
+  }
   Transact* trans = new Transact();
   Handle<Function> cb = Handle<Function>::Cast(args[0]);
   Handle<Value> argv[] = { trans->v8Object() };
@@ -99,6 +105,7 @@ Handle<Value> transact(const Arguments& args) {
 Handle<Value> connect(const Arguments& args) {
   HandleScope scope;
   Handle<Object> params = Handle<Object>::Cast(args[0]);
+  String::Utf8Value _type(params->Get(String::New("type")));
   String::Utf8Value _host(params->Get(String::New("host")));
   String::Utf8Value _user(params->Get(String::New("user")));
   String::Utf8Value _password(params->Get(String::New("password")));
@@ -129,18 +136,26 @@ Handle<Value> connect(const Arguments& args) {
 Handle<Value> stream(const Arguments& args) {
   HandleScope scope;
   Handle<Value> out = Undefined();
-  BatonWithResult* baton = static_cast<BatonWithResult*>(createBatonFromArgs(args));
-  if(baton->creationError != 0) {
-    out = ThrowException(Exception::Error(String::New(baton->creationError)));
-  } else {
+  try {
+    BatonWithResult* baton = static_cast<BatonWithResult*>(createBatonFromArgs(args));
     baton->connectionHolder = new StandardConnectionHolder();
     baton->useResultSet = true;
     baton->queueWork();
+  } catch(ArgParseException e) {
+    out = ThrowException(Exception::Error(String::New(e.what())));
   }
   return scope.Close(out);
 }
 
+Handle<Value> select(const Arguments& args) {
+  HandleScope scope;
+
+  return scope.Close(Undefined());
+}
+
 void init(Handle<Object> target) {
+  target->Set(String::NewSymbol("select"),
+              FunctionTemplate::New(select)->GetFunction());
   target->Set(String::NewSymbol("query"),
               FunctionTemplate::New(query)->GetFunction());
   target->Set(String::NewSymbol("connect"),
@@ -152,5 +167,5 @@ void init(Handle<Object> target) {
   Transact::init(target);
   ResultSet::init(target);
 }
-NODE_MODULE(nativemysql, init)
+NODE_MODULE(jsdbc, init)
 }

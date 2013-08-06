@@ -1,7 +1,8 @@
-var mysql = require('../build/Release/nativemysql');
+var mysql = require('../build/Release/jsdbc');
 
 try {
   mysql.connect({
+    type: 'mysql',
     host: 'localhost',
     user: 'pxm',
     password: 'pxm',

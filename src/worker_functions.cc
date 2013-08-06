@@ -5,7 +5,7 @@
 
 #include "baton.h"
 
-#include <cstring>
+#include <stdio.h>
 
 using namespace v8;
 
@@ -52,6 +52,7 @@ void queryWork(uv_work_t* req) {
   Connection_T connection = baton->connectionHolder->getConnection();
   ResultSet_T result;
   TRY
+    //TODO: this does not work for INSERTs in Postgres as they don't return a result set
     result = Connection_executeQuery(connection, baton->query.c_str());
   CATCH(SQLException)
     baton->result = new EmptyResult(Connection_getLastError(connection));
@@ -84,9 +85,8 @@ void queryWithoutResult(uv_work_t* req) {
   QueryBatonWithoutCallback* baton = static_cast<QueryBatonWithoutCallback*>(req->data);
   int error = 0;
   Connection_T connection = baton->connectionHolder->getConnection();
-  ResultSet_T result;
   TRY
-    result = Connection_executeQuery(connection, baton->query.c_str());
+    Connection_execute(connection, baton->query.c_str());
   CATCH(SQLException)
     error = 1;
     baton->errorText = Connection_getLastError(connection);

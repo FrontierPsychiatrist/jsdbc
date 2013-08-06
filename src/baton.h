@@ -45,7 +45,7 @@ public:
 };
 
 struct Baton {
-  Baton(const char* _query) : query(_query), creationError(0) {};
+  Baton(const char* _query) : query(_query) {};
   virtual ~Baton() {
     delete connectionHolder;
   };
@@ -53,7 +53,6 @@ struct Baton {
   uv_work_t request;
   ConnectionHolder* connectionHolder;
   virtual void queueWork() = 0;
-  const char* creationError;
 };
 
 struct BatonWithResult : public Baton {

@@ -1,0 +1,16 @@
+{
+  "name" : "jsdbc",
+  "version": "0.1.0",
+  "description": "A database querying module for MySQL, Postgres, Oracle and SQLite. Supports transactions and result sets. libzdb is required for compiling and using.",
+  "keywords": ["database", "mysql", "oracle", "postgres", "sqlite", "transaction", "result set", "zdb"],
+  "bugs" : {
+    "url" : "https://github.com/FrontierPsychiatrist/jsdbc/issues",
+    "email": "moritz.schulze@gmail.com"
+  },
+  "author" : "Moritz Schulze <moritz.schulze@gmail.com> (http://www.node-spotify.com)",
+  "main": "./build/Release/jsdbc",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/FrontierPsychiatrist/jsdbc"
+  }
+}

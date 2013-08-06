@@ -1,5 +1,6 @@
 #include "transact.h"
 #include "baton.h"
+#include "exceptions.h"
 
 namespace nodezdb {
 extern Baton* createBatonFromArgs(const Arguments& args);
@@ -9,14 +10,14 @@ Handle<Function> Transact::constructor;
 Handle<Value> Transact::query(const Arguments& args) {
   HandleScope scope;
   Handle<Value> out = Undefined();
-  Baton* baton = createBatonFromArgs(args);
-  if(baton->creationError != 0) {
-    out = ThrowException(Exception::Error(String::New(baton->creationError)));
-    delete baton;
-  } else {
+
+  try {
+    Baton* baton = createBatonFromArgs(args);
     Transact* transact = node::ObjectWrap::Unwrap<Transact>(args.This());  
     baton->connectionHolder = new TransactionalConnectionHolder(transact->connection);
     baton->queueWork();
+  } catch(ArgParseException e) {
+    out = ThrowException(Exception::Error(String::New(e.what())));
   }
   return scope.Close(out);
 }

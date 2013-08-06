@@ -1,7 +1,6 @@
-C-mysql
+jsdbc
 =======
-This is a mysql client for node.js that uses libzdb to query MySQL. Internally it uses a connection pool. It supports
-prepared statements.
+This is a database client for node.js that uses libzdb to query some relational databases. Internally it uses a connection pool. It supports prepared statements and result sets. Currently only mysql is supported.
 
 How to build
 ------------
@@ -15,7 +14,7 @@ How to use
 ----------
 Include it in node.js
 
-    var mysql = require('nativemysql');
+    var mysql = require('jsdbc');
 
 (this name will be changed in the future).
 
