@@ -182,7 +182,7 @@ Handle<Value> connect(const Arguments& args) {
 
   if( database != "undefined" && database != "null" )
   {
-    buffer << database << "/";
+    buffer << database;
   }
 
   buffer << "?user=" << *_user << "&password=" << *_password;
