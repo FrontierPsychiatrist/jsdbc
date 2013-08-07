@@ -37,6 +37,16 @@ These values are non optional and must be set.
 
 Type has to be one of mysql, postgresql, oracle or sqlite.
 
+For sqlite the port is optional. host contains the path to the database file and database is the database file name.
+
+    var sqlite = require('jsdbc');
+
+    sqlite.connect({
+      type: 'sqlite',
+      host: '/var/sqlite',
+      database: 'database.db'
+    });
+
 Querying
 --------
 jsdbc has one method for selecting and one for other queries.
@@ -116,3 +126,7 @@ Future features
 ---------------
 * currently all fields in a prepared statement are treated as strings, this will be improved.
 * a method to obtain the lastInserId from inserts
+
+Known bugs
+----------
+SQlite has issues with parallel transactions and result sets.

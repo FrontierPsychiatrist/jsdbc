@@ -128,7 +128,7 @@ Handle<Value> transact(const Arguments& args) {
 Handle<Value> connect(const Arguments& args) {
   HandleScope scope;
   Handle<Object> params = Handle<Object>::Cast(args[0]);
-  String::Utf8Value _type(params->Get(String::New("type")));
+  const std::string type(*String::Utf8Value(params->Get(String::New("type"))));
   String::Utf8Value _host(params->Get(String::New("host")));
   String::Utf8Value _user(params->Get(String::New("user")));
   String::Utf8Value _password(params->Get(String::New("password")));
@@ -136,16 +136,25 @@ Handle<Value> connect(const Arguments& args) {
   const std::string database( *String::Utf8Value( params->Get(String::New("database") ) ) );
 
   std::ostringstream buffer;
-  buffer << *_type << "://" << *_host << ":" << _port->IntegerValue() << "/";
+  buffer << type << "://" << *_host;
+  
+  if(type != "sqlite") {
+    buffer << ":" << _port->IntegerValue();
+  }
+
+  buffer << "/";
 
   if( database != "undefined" && database != "null" )
   {
     buffer << database;
   }
 
-  buffer << "?user=" << *_user << "&password=" << *_password;
+  if(type != "sqlite") {
+    buffer << "?user=" << *_user << "&password=" << *_password;
+  }
+  
   const std::string connectionString = buffer.str();
-
+  
   URL_T url = URL_new( connectionString.c_str() );
   pool = ConnectionPool_new(url);
   TRY
