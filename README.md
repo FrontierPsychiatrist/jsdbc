@@ -1,6 +1,6 @@
 jsdbc
 =======
-This is a database client for node.js that uses libzdb to query some relational databases. Internally it uses a connection pool. It supports prepared statements and result sets. Currently only mysql is supported.
+This is a database client for node.js that uses libzdb to query some relational databases. Internally it uses a connection pool. It supports prepared statements and result sets. You can use it with MySQL, Postgres, Oracle and SQLite databases.
 
 How to build
 ------------
@@ -21,6 +21,7 @@ Include it in node.js
 Connect with
     
     mysql.connect({
+      type: 'mysql',
       host: 'localhost',
       user: 'myuser,
       password: 'mypassword',
@@ -30,11 +31,13 @@ Connect with
 
 These values are non optional and must be set.
 
+Type has to be one of mysql, postgresql, oracle or sqlite.
+
 Querying
 --------
-After connecting you can execute basic queries like this
+jsdbc has one method for selecting and one for other queries.
 
-    mysql.query('SELECT * FROM table', function(data, err) {
+    mysql.select('SELECT * FROM table', function(data, err) {
       if(err) throw err;
       console.log(data);
     });
@@ -53,7 +56,7 @@ Prepared statements
 -------------------
 Prepared Statements are also allowed, they are used if the second argument is an array:
     
-    mysql.query('SELECT * FROM table WHERE id = ?', [1], function(data, err) {
+    mysql.select('SELECT * FROM table WHERE id = ?', [1], function(data, err) {
       if(err) throw err;
       console.log(data);
     });
@@ -63,8 +66,6 @@ The callback function is mandatory for prepared statements.
 
 Transactions
 ------------
-Note: transactions are in an early state and may cause memory leaks or crash.
-
 Transactions are used like this:
 
     mysql.transact( function(connection) {
@@ -74,7 +75,7 @@ Transactions are used like this:
           connection.close();
           throw err;
         } else {
-          connection.query('SELECT * FROM table WERE id = ?', [1], function(data, err) {//contains an error!
+          connection.select('SELECT * FROM table WERE id = ?', [1], function(data, err) {//contains an error!
             if(err) {
               connection.rollback();
               connection.close();
@@ -109,6 +110,5 @@ Again, it is important that you close your result set to return the connection t
 
 Future features
 ---------------
-* Other databases may be included, as libzdb supports them it should be an easy integration.
 * currently all fields in a prepared statement are treated as strings, this will be improved.
 * a method to obtain the lastInserId from inserts

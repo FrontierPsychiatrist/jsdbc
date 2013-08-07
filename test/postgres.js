@@ -19,11 +19,10 @@ postgres.select('SELECT * FROM test', function(res, err) {
   console.log(res);
 });
 
-/*postgres.query('SELECT * FROM test WHERE id = ?', ["1"], function(res, err) {
+postgres.select('SELECT * FROM test WHERE name = ?', ["test"], function(res, err) {
   if(err) throw err;
   console.log(res);
-});*/
-
+});
 
 postgres.transact( function(connection) {
   connection.query("INSERT INTO test (name, id) VALUES ('test', 1)", function(res, err) {

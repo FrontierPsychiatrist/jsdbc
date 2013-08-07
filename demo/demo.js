@@ -2,7 +2,7 @@ var database = require('jsdbc');
 
 try {
   mysql.connect({
-    type: 'mysql',
+    type: 'mysql', //or one of postgresql, oracle or sqlite
     host: 'localhost',
     user: 'user',
     password: 'password',
@@ -22,7 +22,7 @@ database.transact( function(con) {
       con.close();
     } else {
       console.log(result);
-      con.query('SELECT * FROM tabke', function(result, err) {
+      con.select('SELECT * FROM tabke', function(result, err) {
         if(err) {
           console.log(err);
           con.rollback();
@@ -37,7 +37,7 @@ database.transact( function(con) {
   });
 });
 
-database.query("SELECT name FROM table WHERE id = ?", [1], function(data, err) {
+database.select("SELECT name FROM table WHERE id = ?", [1], function(data, err) {
   if(err) throw err;
   console.log(data);
 });
