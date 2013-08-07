@@ -1,6 +1,6 @@
 jsdbc
 =======
-This is a database client for node.js that uses libzdb to query some relational databases. Internally it uses a connection pool. It supports prepared statements and result sets. You can use it with MySQL, Postgres, Oracle and SQLite databases.
+This is a database client for node.js that uses [libzdb](http://www.tildeslash.com/libzdb/) to query some relational databases. Internally it uses a connection pool. It supports prepared statements and result sets. You can use it with MySQL, Postgres, Oracle and SQLite databases.
 
 How to build
 ------------
@@ -10,13 +10,17 @@ You need libzdb installed, with headers. Just run
 
 to build the module.
 
+jsdbc is also available on npm, so you can run
+
+    npm install jsdbc
+
+as well.
+
 How to use
 ----------
 Include it in node.js
 
     var mysql = require('jsdbc');
-
-(this name will be changed in the future).
 
 Connect with
     
