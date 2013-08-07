@@ -113,7 +113,7 @@ Handle<Value> connect(const Arguments& args) {
   const std::string database( *String::Utf8Value( params->Get(String::New("database") ) ) );
 
   std::ostringstream buffer;
-  buffer << "mysql://" << *_host << ":" << _port->IntegerValue() << "/";
+  buffer << *_type << "://" << *_host << ":" << _port->IntegerValue() << "/";
 
   if( database != "undefined" && database != "null" )
   {
