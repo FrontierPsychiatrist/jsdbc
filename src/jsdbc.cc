@@ -140,6 +140,7 @@ Handle<Value> stream(const Arguments& args) {
     BatonWithResult* baton = static_cast<BatonWithResult*>(createBatonFromArgs(args));
     baton->connectionHolder = new StandardConnectionHolder();
     baton->useResultSet = true;
+    baton->isSelect = true;
     baton->queueWork();
   } catch(ArgParseException e) {
     out = ThrowException(Exception::Error(String::New(e.what())));
@@ -149,8 +150,16 @@ Handle<Value> stream(const Arguments& args) {
 
 Handle<Value> select(const Arguments& args) {
   HandleScope scope;
-
-  return scope.Close(Undefined());
+  Handle<Value> out = Undefined();
+  try {
+    BatonWithResult* baton = static_cast<BatonWithResult*>(createBatonFromArgs(args));
+    baton->connectionHolder = new StandardConnectionHolder();
+    baton->isSelect = true;
+    baton->queueWork();
+  } catch(ArgParseException e) {
+    out = ThrowException(Exception::Error(String::New(e.what())));
+  }
+  return scope.Close(out);
 }
 
 void init(Handle<Object> target) {

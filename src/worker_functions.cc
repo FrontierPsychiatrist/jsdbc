@@ -11,39 +11,38 @@ using namespace v8;
 
 namespace nodezdb {
 
-static Result* parseResult(Connection_T* connection, ResultSet_T* result) {
-  Result* out;
+static Result* parseResult(Connection_T* connection) {
   int rowsChanged = Connection_rowsChanged(*connection);
+  UpdateResult* updateResult = new UpdateResult();
+  updateResult->affectedRows = rowsChanged;
+  return updateResult;
+}
+
+static Result* parseResult(Connection_T* connection, ResultSet_T* result) {
   int columnCount = ResultSet_getColumnCount(*result);
-  if(columnCount != 0) {//There are rows
-    SelectResult* selectResult = new SelectResult();
-    selectResult->fieldNames.resize( columnCount );
+  
+  SelectResult* selectResult = new SelectResult();
+  selectResult->fieldNames.resize( columnCount );
 
-    for(int i = 1; i <= columnCount; i++) {
-      const char* columnName = ResultSet_getColumnName(*result, i);
-      selectResult->fieldNames[i - 1] = columnName;
-    }
-
-    unsigned int rowCounter = 0;
-    while( ResultSet_next(*result) ) {
-      Row* row = new Row();
-      row->fieldValues.resize( columnCount );
-      for(int i = 1; i <= columnCount; i++) {
-        long size = ResultSet_getColumnSize(*result, i);
-        char* temp = new char[ size ];
-        memcpy(temp, ResultSet_getString(*result, i), size + 1);
-        row->fieldValues[i - 1] = temp;
-      }
-      selectResult->rows.push_back(row);
-      rowCounter++;
-    }
-    out = selectResult;
-  } else {
-      UpdateResult* updateResult = new UpdateResult();
-      updateResult->affectedRows = rowsChanged;
-      out = updateResult;
+  for(int i = 1; i <= columnCount; i++) {
+    const char* columnName = ResultSet_getColumnName(*result, i);
+    selectResult->fieldNames[i - 1] = columnName;
   }
-  return out;
+
+  unsigned int rowCounter = 0;
+  while( ResultSet_next(*result) ) {
+    Row* row = new Row();
+    row->fieldValues.resize( columnCount );
+    for(int i = 1; i <= columnCount; i++) {
+      long size = ResultSet_getColumnSize(*result, i);
+      char* temp = new char[ size ];
+      memcpy(temp, ResultSet_getString(*result, i), size + 1);
+      row->fieldValues[i - 1] = temp;
+    }
+    selectResult->rows.push_back(row);
+    rowCounter++;
+  }
+  return selectResult;
 }
 
 void queryWork(uv_work_t* req) {
@@ -52,8 +51,11 @@ void queryWork(uv_work_t* req) {
   Connection_T connection = baton->connectionHolder->getConnection();
   ResultSet_T result;
   TRY
-    //TODO: this does not work for INSERTs in Postgres as they don't return a result set
-    result = Connection_executeQuery(connection, baton->query.c_str());
+    if(baton->isSelect) {
+      result = Connection_executeQuery(connection, baton->query.c_str());
+    } else {
+      Connection_execute(connection, baton->query.c_str());
+    }
   CATCH(SQLException)
     baton->result = new EmptyResult(Connection_getLastError(connection));
     error = 1;
@@ -61,7 +63,11 @@ void queryWork(uv_work_t* req) {
 
   if(!error) {
     if(!baton->useResultSet) {
-      baton->result = parseResult(&connection, &result);
+      if(baton->isSelect) {
+        baton->result = parseResult(&connection, &result);
+      } else {
+        baton->result = parseResult(&connection);
+      }
     } else {
       baton->result = new StreamingResult(result, baton->connectionHolder->getConnection());
       return;
@@ -125,7 +131,11 @@ void preparedStatement(uv_work_t* req) {
   ResultSet_T result;
   if(!error) {
     TRY
-      result = PreparedStatement_executeQuery(pstmt);
+      if(baton->isSelect) {
+        result = PreparedStatement_executeQuery(pstmt);
+      } else {
+        PreparedStatement_execute(pstmt);
+      }
     CATCH(SQLException)
       error = 1;
       baton->result = new EmptyResult(Connection_getLastError(connection));
@@ -134,7 +144,11 @@ void preparedStatement(uv_work_t* req) {
 
   if(!error) {
     if(!baton->useResultSet) {
-      baton->result = parseResult(&connection, &result);
+      if(baton->isSelect) {
+        baton->result = parseResult(&connection, &result);
+      } else {
+        baton->result = parseResult(&connection);
+      }
     } else {
       baton->result = new StreamingResult(result, baton->connectionHolder->getConnection());
       return;

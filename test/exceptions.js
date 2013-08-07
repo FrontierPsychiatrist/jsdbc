@@ -15,31 +15,31 @@ try {
 }
 
 try {
-  mysql.query();
+  mysql.select();
 } catch(e) {
   console.log(e);
 }
 
 try {
-  mysql.query('TEST', [1]);
+  mysql.select('TEST', [1]);
 } catch(e) {
   console.log(e);
 }
 
 try {
-  mysql.query('TEST', 1);
+  mysql.select('TEST', 1);
 } catch(e) {
   console.log(e);
 }
 
 try {
-  mysql.query(123);
+  mysql.select(123);
 } catch(e) {
   console.log(e);
 }
 
 try {
-  mysql.query('TEST', [1], 'Hallo');
+  mysql.select('TEST', [1], 'Hallo');
 } catch(e) {
   console.log(e);
 }
@@ -58,7 +58,7 @@ try {
 
 mysql.transact( function(con) {
   try {
-    con.query(function() {});
+    con.select(function() {});
   } catch(e) {
     console.log(e);
   }  

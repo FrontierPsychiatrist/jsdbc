@@ -10,11 +10,25 @@ Handle<Function> Transact::constructor;
 Handle<Value> Transact::query(const Arguments& args) {
   HandleScope scope;
   Handle<Value> out = Undefined();
-
   try {
     Baton* baton = createBatonFromArgs(args);
     Transact* transact = node::ObjectWrap::Unwrap<Transact>(args.This());  
     baton->connectionHolder = new TransactionalConnectionHolder(transact->connection);
+    baton->queueWork();
+  } catch(ArgParseException e) {
+    out = ThrowException(Exception::Error(String::New(e.what())));
+  }
+  return scope.Close(out);
+}
+
+Handle<Value> Transact::select(const Arguments& args) {
+  HandleScope scope;
+  Handle<Value> out = Undefined();
+  try {
+    BatonWithResult* baton = static_cast<BatonWithResult*>(createBatonFromArgs(args));
+    Transact* transact = node::ObjectWrap::Unwrap<Transact>(args.This());  
+    baton->connectionHolder = new TransactionalConnectionHolder(transact->connection);
+    baton->isSelect = true;
     baton->queueWork();
   } catch(ArgParseException e) {
     out = ThrowException(Exception::Error(String::New(e.what())));

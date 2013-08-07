@@ -14,6 +14,7 @@ extern ConnectionPool_T pool;
 class Transact : public node::ObjectWrap {
 private:
   static Handle<Value> query(const Arguments& args);
+  static Handle<Value> select(const Arguments& args);
   static Handle<Value> rollback(const Arguments& args);
   static Handle<Value> commit(const Arguments& args);
   static Handle<Value> close(const Arguments& args);
@@ -39,6 +40,7 @@ public:
     tpl->SetClassName(String::NewSymbol("Transact"));
     tpl->InstanceTemplate()->SetInternalFieldCount(1);
     NODE_SET_PROTOTYPE_METHOD(tpl, "query", query);
+    NODE_SET_PROTOTYPE_METHOD(tpl, "select", select);
     NODE_SET_PROTOTYPE_METHOD(tpl, "commit", commit);
     NODE_SET_PROTOTYPE_METHOD(tpl, "rollback", rollback);
     NODE_SET_PROTOTYPE_METHOD(tpl, "close", close);

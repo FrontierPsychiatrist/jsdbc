@@ -56,7 +56,8 @@ struct Baton {
 };
 
 struct BatonWithResult : public Baton {
-  BatonWithResult(Persistent<Function> _callback, const char* _query) : Baton(_query), callback(_callback), useResultSet(false) {};
+  BatonWithResult(Persistent<Function> _callback, const char* _query) : Baton(_query), callback(_callback),
+    useResultSet(false), isSelect(false) {};
   virtual ~BatonWithResult() {
     delete result;
     callback.Dispose();
@@ -64,6 +65,7 @@ struct BatonWithResult : public Baton {
   Result* result;
   Persistent<Function> callback;
   bool useResultSet;
+  bool isSelect;
 };
 
 struct QueryBaton : public BatonWithResult {

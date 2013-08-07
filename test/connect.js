@@ -22,7 +22,7 @@ mysql.transact( function(con) {
       con.close();
     } else {
       console.log(result);
-      con.query('SELEKT * FROM transtest', function(result, err) {
+      con.select('SELEKT * FROM transtest', function(result, err) {
         if(err) {
           console.log(err);
           con.rollback();
@@ -37,12 +37,12 @@ mysql.transact( function(con) {
   });
 });
 
-mysql.query("SELECT m_usermail FROM pxm_message WHERE m_usernickname = ? AND m_id = ?", ["moritz", 3], function(data, err) {
+mysql.select("SELECT m_usermail FROM pxm_message WHERE m_usernickname = ? AND m_id = ?", ["moritz", 3], function(data, err) {
   if(err) throw err;
   console.log(data);
 });
 
-mysql.query("SELECT * FROM pxm_message WHERE m_id = 1", function(data, err) {
+mysql.select("SELECT * FROM pxm_message WHERE m_id = 1", function(data, err) {
   if(err) throw err;
   console.log(data);
 });

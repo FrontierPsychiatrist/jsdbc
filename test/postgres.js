@@ -14,20 +14,16 @@ try {
   process.exit(1);
 }
 
-/*postgres.query('SELECT * FROM test', function(res, err) {
+postgres.select('SELECT * FROM test', function(res, err) {
   if(err) throw err;
   console.log(res);
-});*/
+});
 
 /*postgres.query('SELECT * FROM test WHERE id = ?', ["1"], function(res, err) {
   if(err) throw err;
   console.log(res);
 });*/
 
-postgres.query("INSERT INTO test (name, id) VALUES ('test', 1)", function(res, err) {
-    if(err) {
-      console.log("INSERT " + err);
-    }});
 
 postgres.transact( function(connection) {
   connection.query("INSERT INTO test (name, id) VALUES ('test', 1)", function(res, err) {
@@ -36,7 +32,7 @@ postgres.transact( function(connection) {
       connection.rollback();
       connection.close();
     } else {
-      connection.query('SELECT * FROM test', function(res, err) {
+      connection.select('SELECT * FROM test', function(res, err) {
         if(err) {
           console.log("SELECT" + err);
           connection.rollback();
