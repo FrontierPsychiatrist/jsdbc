@@ -29,6 +29,7 @@ THE SOFTWARE.
 #include "baton.h"
 
 #include <stdio.h>
+#include <iostream>
 
 using namespace v8;
 
@@ -112,12 +113,10 @@ void afterQuery(uv_work_t* req, int bla) {
 
 void queryWithoutResult(uv_work_t* req) {
   QueryBatonWithoutCallback* baton = static_cast<QueryBatonWithoutCallback*>(req->data);
-  int error = 0;
   Connection_T connection = baton->connectionHolder->getConnection();
   TRY
     Connection_execute(connection, baton->query.c_str());
   CATCH(SQLException)
-    error = 1;
     baton->errorText = Connection_getLastError(connection);
   END_TRY;
   baton->connectionHolder->closeConnection();
