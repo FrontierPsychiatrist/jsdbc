@@ -51,15 +51,15 @@ Querying
 --------
 jsdbc has one method for selecting and one for other queries.
 
-    mysql.select('SELECT * FROM table', function(data, err) {
+    mysql.select('SELECT * FROM table', function(err, res) {
       if(err) throw err;
-      console.log(data);
+      console.log(res);
     });
     //--> [ {name: 'FrontierPsychiatrist', id: '1', age: '27'}, {name : ...}]
 
-    mysql.query("UPDATE table SET name = 'MCS' WHERE id = 1", function(data, err) {
+    mysql.query("UPDATE table SET name = 'MCS' WHERE id = 1", function(err, res) {
       if(err) throw err;
-      console.log(data);
+      console.log(res);
     });
     //--> {affectedRows: 1}
 
@@ -70,9 +70,9 @@ Prepared statements
 -------------------
 Prepared Statements are also allowed, they are used if the second argument is an array:
     
-    mysql.select('SELECT * FROM table WHERE id = ?', [1], function(data, err) {
+    mysql.select('SELECT * FROM table WHERE id = ?', [1], function(err, res) {
       if(err) throw err;
-      console.log(data);
+      console.log(res);
     });
     //--> [ {name: 'FrontierPsychiatrist', id: '1', age: '27'} ]
 
@@ -83,13 +83,13 @@ Transactions
 Transactions are used like this:
 
     mysql.transact( function(connection) {
-      connection.query('INSERT INTO table (id, name) VALUES (1, "FrontierPsychiatrist")', function(data, err) {
+      connection.query('INSERT INTO table (id, name) VALUES (1, "FrontierPsychiatrist")', function(err, res) {
         if(err) {
           connection.rollback();
           connection.close();
           throw err;
         } else {
-          connection.select('SELECT * FROM table WERE id = ?', [1], function(data, err) {//contains an error!
+          connection.select('SELECT * FROM table WERE id = ?', [1], function(err, res) {//contains an error!
             if(err) {
               connection.rollback();
               connection.close();
@@ -109,7 +109,7 @@ Result Sets
 -----------
 The standard query approach loads all resulting rows into memory. This can be unfortunate if you have a large number of rows selected. To overcome this, the standard streaming result set approach is implemented.
 
-    mysql.stream("SELECT * FROM table WHERE age > ?", [18], function(resultSet, err) {
+    mysql.stream("SELECT * FROM table WHERE age > ?", [18], function(err, resultSet) {
       if (err) throw err;
       while(resultSet.next()) {
         console.log(resultSet.getString(1));
@@ -129,4 +129,5 @@ Future features
 
 Known bugs
 ----------
-SQlite has issues with parallel transactions and result sets.
+* SQlite has issues with parallel transactions and result sets.
+* Executing .query with a select statement on a MySQL database won't return the connection to the pool. Use .select
