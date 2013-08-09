@@ -105,7 +105,7 @@ void afterQuery(uv_work_t* req, int bla) {
   BatonWithResult* baton = static_cast<BatonWithResult*>(req->data);
   Handle<Value> result = baton->result->getResultObject();
   Handle<Value> error = String::New(baton->result->errorText.c_str());
-  Handle<Value> argv[] = { result, error };
+  Handle<Value> argv[] = { error, result };
   baton->callback->Call(Context::GetCurrent()->Global(), 2, argv);
   delete baton;
   scope.Close(Undefined());

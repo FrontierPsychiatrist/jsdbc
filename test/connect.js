@@ -15,20 +15,20 @@ try {
 }
 
 mysql.transact( function(con) {
-  con.query('INSERT INTO transtest (name ,id) VALUES ("hurr", 1)', function(result, err) {
+  con.query('INSERT INTO transtest (name ,id) VALUES ("hurr", 1)', function(err, res) {
     if(err) {
       console.log(err);
       con.rollback();
       con.close();
     } else {
-      console.log(result);
-      con.select('SELEKT * FROM transtest', function(result, err) {
+      console.log(res);
+      con.select('SELEKT * FROM transtest', function(res, err) {
         if(err) {
           console.log(err);
           con.rollback();
           con.close();
         } else {
-          console.log(result);
+          console.log(res);
           con.commit();
           con.close();
         }
@@ -37,20 +37,20 @@ mysql.transact( function(con) {
   });
 });
 
-mysql.select("SELECT m_usermail FROM pxm_message WHERE m_usernickname = ? AND m_id = ?", ["moritz", 3], function(data, err) {
+mysql.select("SELECT m_usermail FROM pxm_message WHERE m_usernickname = ? AND m_id = ?", ["moritz", 3], function(err, res) {
   if(err) throw err;
-  console.log(data);
+  console.log(res);
 });
 
-mysql.select("SELECT * FROM pxm_message WHERE m_id = 1", function(data, err) {
+mysql.select("SELECT * FROM pxm_message WHERE m_id = 1", function(err, res) {
   if(err) throw err;
-  console.log(data);
+  console.log(res);
 });
 
 mysql.query("UPDATE pxm_message SET m_usermail = 'Hurr2' WHERE m_id = 1",
-  function(result, err) {
+  function(err, res) {
     if(err) throw err;
-    console.log(result);
+    console.log(res);
 });
 
 mysql.query('SELECT * FROM pxm_message');

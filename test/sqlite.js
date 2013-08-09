@@ -13,7 +13,7 @@ try {
   process.exit(1);
 }
 
-sqlite.select('SELECT * FROM test', function(res, err) {
+sqlite.select('SELECT * FROM test', function(err, res) {
   if(err) throw err;
   console.log(res);
 });
@@ -25,18 +25,18 @@ sqlite.select('SELECT * FROM test', function(res, err) {
   resultSet.close();
 });*/
 
-sqlite.select('SELECT * FROM test WHERE id = ?', [2], function(res, err) {
+sqlite.select('SELECT * FROM test WHERE id = ?', [2], function(err, res) {
   console.log(res);
 });
 
 sqlite.transact(function(con) {
-  con.query('INSERT INTO test (name, id) VALUES ("test", 2)', function(res, err) {
+  con.query('INSERT INTO test (name, id) VALUES ("test", 2)', function(err, res) {
     if(err) {
       console.log(err);
       con.rollback();
       con.close();
     } else {
-      con.select('SELECT * FROM test', function(res, err) {
+      con.select('SELECT * FROM test', function(err, res) {
         if(err) {
           console.log(err);
           con.rollback();

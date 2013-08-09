@@ -14,7 +14,7 @@ try {
   process.exit(1);
 }
 
-mysql.stream("SELECT * FROM pxm_message", function(resultSet, err) {
+mysql.stream("SELECT * FROM pxm_message", function(err, resultSet) {
   if (err) throw err;
   while(resultSet.next()) {
     console.log(resultSet.getString(1) + " " + resultSet.getString(5));
@@ -22,7 +22,7 @@ mysql.stream("SELECT * FROM pxm_message", function(resultSet, err) {
   resultSet.close();
 });
 
-mysql.stream("SELECT * FROM pxm_message WHERE m_id = ?", [1], function(resultSet, err) {
+mysql.stream("SELECT * FROM pxm_message WHERE m_id = ?", [1], function(err, resultSet) {
   if (err) throw err;
     while(resultSet.next()) {
       console.log(resultSet.getString(1) + " " + resultSet.getString(5));
