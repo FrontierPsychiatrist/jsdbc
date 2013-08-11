@@ -111,15 +111,19 @@ The standard query approach loads all resulting rows into memory. This can be un
 
     mysql.stream("SELECT * FROM table WHERE age > ?", [18], function(err, resultSet) {
       if (err) throw err;
+      for(var i = 1; i <= resultSet.getColumnCount(); i++) {
+        console.log(resultSet.getColumnName(i));
+      }
       while(resultSet.next()) {
         console.log(resultSet.getString(1));
+        console.log(resultSet.getInt(2));
+        console.log(resultSet.getDouble(3));
       }
       resultSet.close();
     });
 
 Again, it is important that you close your result set to return the connection to the pool.
 
-* Currently, only getString is implemented
 * mixing transactions and streaming result sets is not yet possible
 
 Future features

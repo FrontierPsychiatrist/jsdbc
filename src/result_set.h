@@ -56,13 +56,21 @@ public:
   };
   static Handle<Value> next(const Arguments& args);
   static Handle<Value> getString(const Arguments& args);
+  static Handle<Value> getInt(const Arguments& args);
+  static Handle<Value> getDouble(const Arguments& args);
   static Handle<Value> close(const Arguments& args);
+  static Handle<Value> getColumnName(const Arguments& args);
+  static Handle<Value> getColumnCount(const Arguments& args);
   static void init(Handle<Value> target) {
     Local<FunctionTemplate> tpl = FunctionTemplate::New();
     tpl->SetClassName(String::NewSymbol("ResultSet"));
     tpl->InstanceTemplate()->SetInternalFieldCount(1);
     NODE_SET_PROTOTYPE_METHOD(tpl, "next", next);
     NODE_SET_PROTOTYPE_METHOD(tpl, "getString", getString);
+    NODE_SET_PROTOTYPE_METHOD(tpl, "getInt", getInt);
+    NODE_SET_PROTOTYPE_METHOD(tpl, "getDouble", getDouble);
+    NODE_SET_PROTOTYPE_METHOD(tpl, "getColumnName", getColumnName);
+    NODE_SET_PROTOTYPE_METHOD(tpl, "getColumnCount", getColumnCount);
     NODE_SET_PROTOTYPE_METHOD(tpl, "close", close);
     constructor = Persistent<Function>::New(tpl->GetFunction());
   }

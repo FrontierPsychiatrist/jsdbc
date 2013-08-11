@@ -35,9 +35,70 @@ Handle<Value> ResultSet::next(const Arguments& args) {
 
 Handle<Value> ResultSet::getString(const Arguments& args) {
   HandleScope scope;
-  Handle<Number> _i = args[0]->ToNumber();
   ResultSet* resultSet = node::ObjectWrap::Unwrap<ResultSet>(args.This());
-  return scope.Close(String::New(ResultSet_getString(resultSet->resultSet, _i->IntegerValue())));
+  Handle<Value> out = Undefined();
+  if(args[0]->IsNumber()) {
+    Handle<Number> position = args[0]->ToNumber();
+    out = String::New(ResultSet_getString(resultSet->resultSet, position->IntegerValue()));
+  } else if (args[0]->IsString()) {
+    const char* name = *String::Utf8Value(args[0]->ToString());
+    out = String::New(ResultSet_getStringByName(resultSet->resultSet, name));
+  } else {
+    out = ThrowException(Exception::Error(String::New("Only a number or a string is allowed")));
+  }
+  return scope.Close(out);
+}
+
+Handle<Value> ResultSet::getInt(const Arguments& args) {
+  HandleScope scope;
+  ResultSet* resultSet = node::ObjectWrap::Unwrap<ResultSet>(args.This());
+  Handle<Value> out = Undefined();
+  if(args[0]->IsNumber()) {
+    Handle<Number> position = args[0]->ToNumber();
+    out = Number::New(ResultSet_getInt(resultSet->resultSet, position->IntegerValue()));
+  } else if (args[0]->IsString()) {
+    const char* name = *String::Utf8Value(args[0]->ToString());
+    out = Number::New(ResultSet_getIntByName(resultSet->resultSet, name));
+  } else {
+    out = ThrowException(Exception::Error(String::New("Only a number or a string is allowed")));
+  }
+  return scope.Close(out);
+}
+
+Handle<Value> ResultSet::getDouble(const Arguments& args) {
+  HandleScope scope;
+  ResultSet* resultSet = node::ObjectWrap::Unwrap<ResultSet>(args.This());
+  Handle<Value> out = Undefined();
+  if(args[0]->IsNumber()) {
+    Handle<Number> position = args[0]->ToNumber();
+    out = Number::New(ResultSet_getDouble(resultSet->resultSet, position->IntegerValue()));
+  } else if (args[0]->IsString()) {
+    const char* name = *String::Utf8Value(args[0]->ToString());
+    out = Number::New(ResultSet_getDoubleByName(resultSet->resultSet, name));
+  } else {
+    out = ThrowException(Exception::Error(String::New("Only a number or a string is allowed")));
+  }
+  return scope.Close(out);
+}
+
+Handle<Value> ResultSet::getColumnName(const Arguments& args) {
+  HandleScope scope;
+  ResultSet* resultSet = node::ObjectWrap::Unwrap<ResultSet>(args.This());
+  Handle<Value> out = Undefined();
+  if(args.Length() < 1 || !args[0]->IsNumber()) {
+    out = ThrowException(Exception::Error(String::New("Please use a number as the first argument")));
+  } else {
+    Handle<Number> position = args[0]->ToNumber();
+    out = String::New(ResultSet_getColumnName(resultSet->resultSet, position->IntegerValue()));
+  }
+  return scope.Close(out);
+}
+
+Handle<Value> ResultSet::getColumnCount(const Arguments& args) {
+  HandleScope scope;
+  ResultSet* resultSet = node::ObjectWrap::Unwrap<ResultSet>(args.This());
+  Handle<Value> out = Number::New(ResultSet_getColumnCount(resultSet->resultSet));
+  return scope.Close(out);
 }
 
 Handle<Value> ResultSet::close(const Arguments& args) {
