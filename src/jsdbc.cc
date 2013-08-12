@@ -1,7 +1,7 @@
 /**
 The MIT License (MIT)
 
-Copyright (c) 2013 Moritz Schulze 
+Copyright (c) 2013 Moritz Schulze
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -107,7 +107,7 @@ Handle<Value> query(const Arguments& args) {
     Baton* baton = createBatonFromArgs(args);
     baton->connectionHolder = new StandardConnectionHolder();
     baton->queueWork();
-  } catch(ArgParseException e) {
+  } catch(const ArgParseException& e) {
     out = ThrowException(Exception::Error(String::New(e.what())));
   }
   return scope.Close(out);
@@ -137,7 +137,7 @@ Handle<Value> connect(const Arguments& args) {
 
   std::ostringstream buffer;
   buffer << type << "://" << *_host;
-  
+
   if(type != "sqlite") {
     buffer << ":" << _port->IntegerValue();
   }
@@ -152,9 +152,9 @@ Handle<Value> connect(const Arguments& args) {
   if(type != "sqlite") {
     buffer << "?user=" << *_user << "&password=" << *_password;
   }
-  
+
   const std::string connectionString = buffer.str();
-  
+
   URL_T url = URL_new( connectionString.c_str() );
   pool = ConnectionPool_new(url);
   TRY
@@ -174,7 +174,7 @@ Handle<Value> stream(const Arguments& args) {
     baton->useResultSet = true;
     baton->isSelect = true;
     baton->queueWork();
-  } catch(ArgParseException e) {
+  } catch(const ArgParseException& e) {
     out = ThrowException(Exception::Error(String::New(e.what())));
   }
   return scope.Close(out);
@@ -188,7 +188,7 @@ Handle<Value> select(const Arguments& args) {
     baton->connectionHolder = new StandardConnectionHolder();
     baton->isSelect = true;
     baton->queueWork();
-  } catch(ArgParseException e) {
+  } catch(const ArgParseException& e) {
     out = ThrowException(Exception::Error(String::New(e.what())));
   }
   return scope.Close(out);
