@@ -16,8 +16,13 @@
           }
           }],
         ["OS=='linux'", {
-          "cflags_cc": ["-std=c++11", "-fcxx-exceptions"]
-          }]
+          "cflags_cc": [
+            "-std=c++11",
+            "-Wall",
+            "-pedantic",
+            "-fexceptions"
+          ]
+        }]
       ]
     }
   ]
