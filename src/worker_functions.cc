@@ -1,7 +1,7 @@
 /**
 The MIT License (MIT)
 
-Copyright (c) 2013 Moritz Schulze 
+Copyright (c) 2013 Moritz Schulze
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -30,6 +30,7 @@ THE SOFTWARE.
 
 #include <stdio.h>
 #include <iostream>
+#include <cstring>
 
 using namespace v8;
 
@@ -44,7 +45,7 @@ static Result* parseResult(Connection_T* connection) {
 
 static Result* parseResult(Connection_T* connection, ResultSet_T* result) {
   int columnCount = ResultSet_getColumnCount(*result);
-  
+
   SelectResult* selectResult = new SelectResult();
   selectResult->fieldNames.resize( columnCount );
 
@@ -131,7 +132,7 @@ void afterQueryWithoutResult(uv_work_t* req, int bla) {
 void preparedStatement(uv_work_t* req) {
   PreparedStatementBaton* baton = static_cast<PreparedStatementBaton*>(req->data);
   Connection_T connection = baton->connectionHolder->getConnection();
-  PreparedStatement_T pstmt;
+  PreparedStatement_T pstmt = nullptr;
   int error = 0;
   TRY
     pstmt = Connection_prepareStatement(connection, baton->query.c_str());
